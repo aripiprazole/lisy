@@ -11,6 +11,7 @@ module Ast
     tUnit,
     tChar,
     tInt,
+    tDouble,
     tFloat,
     tList,
     tArrow,
