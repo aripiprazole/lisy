@@ -1,4 +1,22 @@
-module Adhoc where
+module Adhoc
+  ( Qual (..),
+    Pred (..),
+    Class,
+    Inst,
+    mguPred,
+    matchPred,
+    ClassEnv (..),
+    EnvTransformer,
+    (<:>),
+    super,
+    insts,
+    initialEnv,
+    modify,
+    addClass,
+    addInst,
+    addPreludeClasses,
+  )
+where
 
 import Ast (Name (Id), Typ, tDouble, tInt)
 import Data.List (union)

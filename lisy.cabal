@@ -27,6 +27,7 @@ library
   exposed-modules:
       Adhoc
       Ast
+      Entailment
       Lib
       Types
       Unify
