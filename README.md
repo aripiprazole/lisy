@@ -1,3 +1,4 @@
 # lisy
 
-Simple interpreted programming language with Hindley-Milner type system with type classes extension.
+Simple interpreted programming language with Hindley-Milner type system
+implementing the paper http://web.cecs.pdx.edu/~mpj/thih/thih.pdf
