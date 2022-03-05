@@ -1,8 +1,7 @@
 module Types (Subst, nullSubst, (+->), Types (..), (@@), merge) where
 
 import Ast (TyVar, Typ (TApp, TCon, TGen, TVar))
-import Control.Monad (msum)
-import Data.List (intersect, nub, partition, union, (\\))
+import Data.List (intersect, nub, union)
 
 -- | Represents type variables's mapping to types
 type Subst = [(TyVar, Typ)]
@@ -49,7 +48,7 @@ instance Types Typ where
 -- substitutions, it fails, otherwise, returns `s1 ++ s2`.
 -- The result preserves the types' kinds.
 merge :: MonadFail m => Subst -> Subst -> m Subst
-merge s1 s2 = if agree then return $ s1 ++ s2 else fail "Merge fails"
+merge s1 s2 = if agree then return $ s1 ++ s2 else fail "merge fails"
   where
     agree :: Bool
     agree = all f (map fst s1 `intersect` map fst s2)
