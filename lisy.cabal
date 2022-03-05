@@ -28,6 +28,7 @@ library
       Ast
       Lib
       Types
+      Unify
   other-modules:
       Paths_lisy
   hs-source-dirs:
