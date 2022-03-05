@@ -26,10 +26,12 @@ source-repository head
 library
   exposed-modules:
       Adhoc
+      Assump
       Ast
       Entailment
       Lib
       Reduction
+      Scheme
       Types
       Unify
   other-modules:
