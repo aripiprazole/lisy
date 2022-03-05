@@ -25,7 +25,9 @@ source-repository head
 
 library
   exposed-modules:
+      Ast
       Lib
+      Types
   other-modules:
       Paths_lisy
   hs-source-dirs:
