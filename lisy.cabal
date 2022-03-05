@@ -29,6 +29,7 @@ library
       Ast
       Entailment
       Lib
+      Reduction
       Types
       Unify
   other-modules:
