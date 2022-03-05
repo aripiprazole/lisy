@@ -1,9 +1,9 @@
 module Reduction (inHnf, toHnf, toHnfs, simplify, reduce) where
 
 import Adhoc (ClassEnv, Pred (IsIn))
-import Ast (Typ (TApp, TCon, TVar))
 import Data.Bool (bool)
 import Entailment (byInst, entail)
+import Types (Typ (TApp, TCon, TVar))
 
 -- | Checks if the predicate is in the head-normal form. Class arguments
 -- are required to be in the form `u t1,...,tn`, where u is a type variable,

@@ -18,10 +18,10 @@ module Adhoc
   )
 where
 
-import Ast (Name (Id), Typ, tDouble, tInt)
 import Data.List (union)
 import Data.Maybe (isJust, isNothing)
-import Types (Subst, Types (apply, ftv))
+import Name (Name (Id))
+import Types (Subst, Typ, Types (apply, ftv), tDouble, tInt)
 import Unify (match, mgu)
 
 -- | Types can be quantified by adding a list of predicates, to restrict

@@ -1,7 +1,6 @@
 module Unify where
 
-import Ast (HasKind (kind), TyVar, Typ (TApp, TCon, TVar))
-import Types (Subst, Types (ftv), merge, nullSubst, (+->), (@@))
+import Types (HasKind (kind), Subst, TyVar, Typ (TApp, TCon, TVar), Types (ftv), merge, nullSubst, (+->), (@@))
 
 -- | `mgu`, that stand for most geral unifier, unifies two types and returns
 -- a substition s that `apply s t1` is equal to `apply s t2`, if can't unify

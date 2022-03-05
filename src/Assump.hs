@@ -1,7 +1,7 @@
 module Assump (Assump (..), find) where
 
-import Ast (Name)
 import Control.Monad (MonadFail)
+import Name (Name)
 import Scheme (Scheme)
 import Types (Types (apply, ftv))
 

@@ -14,9 +14,8 @@ module Infer
 where
 
 import Adhoc (Pred (IsIn), Qual ((:=>)))
-import Ast (Kind, TyVar (TyVar), Typ (TApp, TGen, TVar), enumId)
 import Scheme (Scheme (Forall))
-import Types (Subst, Types (apply), nullSubst, (@@))
+import Types (Kind, Subst, TyVar (TyVar), Typ (TApp, TGen, TVar), Types (apply), enumId, nullSubst, (@@))
 import Unify (mgu)
 
 -- | Current fresh types state.

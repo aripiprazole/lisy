@@ -29,7 +29,9 @@ library
       Assump
       Ast
       Entailment
+      Infer
       Lib
+      Name
       Reduction
       Scheme
       Types
