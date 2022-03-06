@@ -39,6 +39,7 @@ someFunc = do
   let a = TVar (TyVar (Id "a") KStar)
   let b = TVar (TyVar (Id "b") KStar)
 
+  print (toBg [sample])
   print $ simplify pe [IsIn tInt (Id "Num")]
   print std
   print pg

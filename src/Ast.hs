@@ -8,9 +8,6 @@ module Ast
     Expl (..),
     Alt (..),
     Program (..),
-    HasName (..),
-    alts,
-    pats,
   )
 where
 
@@ -41,15 +38,20 @@ data Decl
   | DLet Name [Pat] Exp -- <name> [<pat>] = <exp>
   deriving (Show)
 
--- | Specifies the left and right sides of a function definition.
-data Alt = Alt [Pat] Exp deriving (Show)
-
 -- | Specifies a function definition: <name> [<pat>] = <exp>.
-data Expl = Expl Name Scheme [Alt] deriving (Show)
+data Expl = Expl
+  { eName :: Name,
+    eScheme :: Scheme,
+    eAlts :: [Alt]
+  }
+  deriving (Show)
 
-data BindGroup = BindGroup [Expl] [[Impl]] deriving (Show)
+-- | Specifies the left and right sides of a function definition.
+data Alt = Alt {pats :: [Pat], exp :: Exp} deriving (Show)
 
-data Impl = Impl Name [Alt] deriving (Show)
+data Impl = Impl {iName :: Name, iAlts :: [Alt]} deriving (Show)
+
+data BindGroup = BindGroup {expls :: [Expl], impls :: [[Impl]]} deriving (Show)
 
 newtype Program = Program [BindGroup] deriving (Show)
 
@@ -60,15 +62,3 @@ data Exp
   | EApp Exp Exp -- <exp> <exp>
   | ELet BindGroup Exp -- let <name> = <exp> in <exp>
   deriving (Show)
-
-pats :: Alt -> [Pat]
-pats (Alt ps _) = ps
-
-alts :: Impl -> [Alt]
-alts (Impl _ alts) = alts
-
-class HasName a where name :: a -> Name
-
-instance HasName Expl where name (Expl n _ _) = n
-
-instance HasName Impl where name (Impl n _) = n

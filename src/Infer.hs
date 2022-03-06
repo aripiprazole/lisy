@@ -3,7 +3,7 @@ module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, ti
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Ambiguity (defaultSubst, split)
 import Assump (Assump ((:>:)), find)
-import Ast (Alt (Alt), BindGroup (BindGroup), Exp (EApp, EConst, ELet, ELit, EVar), Expl (Expl), HasName (name), Impl (Impl), Lit (LChar, LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program, alts, pats)
+import Ast (Alt (Alt, pats), BindGroup (BindGroup), Exp (EApp, EConst, ELet, ELit, EVar), Expl (Expl), Impl (Impl, iAlts, iName), Lit (LChar, LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program)
 import Control.Monad (zipWithM)
 import Data.List (intersect, union, (\\))
 import Entailment (entail)
@@ -29,10 +29,10 @@ tiProgram ce as pg = runTI $ do
 tiImpls :: Infer [Impl] [Assump]
 tiImpls ce as bs = do
   ts <- mapM (\_ -> newTVar KStar) bs
-  let ns = map name bs
+  let ns = map iName bs
       scs = map toScheme ts
       as' = zipWith (:>:) ns scs ++ as
-      alts' = map alts bs
+      alts' = map iAlts bs
   pss <- zipWithM (tiAlts ce as) alts' ts
   s <- getSubst
   let ps' = apply s $ concat pss
