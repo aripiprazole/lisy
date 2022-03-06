@@ -5,7 +5,7 @@ import Data.List (partition, (\\))
 import Entailment (entail)
 import Name (Name (Id))
 import Reduction (reduce)
-import Types (Subst, TyVar (TyVar), Typ (TVar), Types (ftv))
+import Types (Subst (Subst), TyVar (TyVar), Typ (TVar), Types (ftv))
 
 -- | Ambiguity is when a type scheme ps :=> τ, ps contains quantified variables
 -- that not appears in τ.
@@ -55,7 +55,10 @@ defaultedPreds :: MonadFail m => ClassEnv -> [TyVar] -> [Pred] -> m [Pred]
 defaultedPreds = withDefaults $ \vps _ -> concatMap snd vps
 
 defaultSubst :: MonadFail m => ClassEnv -> [TyVar] -> [Pred] -> m Subst
-defaultSubst = withDefaults $ zip . map fst
+defaultSubst ce us ps = do
+  s <- withDefaults (zip . map fst) ce us ps
+
+  return $ Subst s
 
 -- | Splits into 2 lists, the first will be passed out as constraints to
 -- the enclosing scope, the second will be used to form an inferred type.

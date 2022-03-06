@@ -1,5 +1,5 @@
 module Types
-  ( Subst,
+  ( Subst (..),
     nullSubst,
     (+->),
     Types (..),
@@ -31,13 +31,26 @@ import Data.List (intersect, nub, union)
 import Name (Name (..))
 
 -- | Represents type variables's mapping to types
-type Subst = [(TyVar, Typ)]
+newtype Subst = Subst {substs :: [(TyVar, Typ)]}
+
+instance Show Subst where
+  show (Subst []) = "Subst {}"
+  show (Subst s) = "Subst { " ++ showSubstList s ++ " }"
+
+showSubstList :: [(TyVar, Typ)] -> String
+showSubstList [] = ""
+showSubstList [(u, t)] = concat ["(", show u, ")", ": ", show t]
+showSubstList ((u, t) : xs) = concat ["(", show u, ")", ": ", show t, ", ", showSubstList xs]
 
 nullSubst :: Subst
-nullSubst = []
+nullSubst = Subst []
 
 (+->) :: TyVar -> Typ -> Subst
-(+->) u t = [(u, t)]
+(+->) u t = Subst [(u, t)]
+
+-- | Concatenates two substituitions.
+(+++) :: Subst -> Subst -> Subst
+(+++) (Subst s1) (Subst s2) = Subst (s1 ++ s2)
 
 -- | Composes substitutions,
 -- `apply (s1 @@ s2)` is equal to `apply s1 . apply s2`.
@@ -45,17 +58,17 @@ nullSubst = []
 -- precedence of any bindings in s2. For that the `merge` function is used.
 -- The result of both functions preserves the types' kinds.
 (@@) :: Subst -> Subst -> Subst
-(@@) s1 s2 = [(u, apply s1 t) | (u, t) <- s2] ++ s1
+(@@) s1 (Subst s2) = Subst ([(u, apply s1 t) | (u, t) <- s2]) +++ s1
 
--- | Merges two substitutions, is equivalent to `s1 ++ s2` but
+-- | Merges two substitutions, is equivalent to `s1 +++ s2` but
 -- if there are any conflicts between the type variables of the two
--- substitutions, it fails, otherwise, returns `s1 ++ s2`.
+-- substitutions, it fails, otherwise, returns `s1 +++ s2`.
 -- The result preserves the types' kinds.
 merge :: MonadFail m => Subst -> Subst -> m Subst
-merge s1 s2 = if agree then return $ s1 ++ s2 else fail "merge fails"
+merge s1 s2 = if agree then return $ s1 +++ s2 else fail "merge fails"
   where
     agree :: Bool
-    agree = all f (map fst s1 `intersect` map fst s2)
+    agree = all f (map fst (substs s1) `intersect` map fst (substs s2))
 
     f :: TyVar -> Bool
     f u = apply s1 (TVar u) == apply s2 (TVar u)
@@ -122,7 +135,7 @@ instance Types a => Types [a] where
   ftv = nub . concatMap ftv
 
 instance Types Typ where
-  apply s (TVar u) = case lookup u s of
+  apply (Subst s) (TVar u) = case lookup u s of
     Just t -> t
     Nothing -> TVar u
   apply s (TApp a b) = TApp (apply s a) (apply s b)

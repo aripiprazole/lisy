@@ -1,7 +1,7 @@
 module Scheme (Scheme (..), quantify, toScheme) where
 
 import Adhoc (Qual ((:=>)))
-import Types (HasKind (kind), Kind, Subst, TyVar, Typ (TGen), Types (apply, ftv))
+import Types (HasKind (kind), Kind, Subst (Subst), TyVar, Typ (TGen), Types (apply, ftv))
 
 -- | Type schemes are used to describe qualified types.
 -- Each TGen that appears in qt represents a generic that the kind is given
@@ -27,7 +27,7 @@ quantify us qt = Forall ks (apply s qt)
     ks = map kind us'
 
     s :: Subst
-    s = zip us' (map TGen [0 ..])
+    s = Subst $ zip us' (map TGen [0 ..])
 
 -- | Transform a type into a scheme without quantifying or adding
 -- qualified predicates.
