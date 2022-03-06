@@ -3,7 +3,7 @@ module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, ti
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Ambiguity (defaultSubst, split)
 import Assump (Assump ((:>:)), find)
-import Ast (Alt, BindGroup, Exp (EApp, EConst, ELet, ELit, EVar), Expl, Impl, Lit (LChar, LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program)
+import Ast (Alt (Alt), BindGroup (BindGroup), Exp (EApp, EConst, ELet, ELit, EVar), Expl (Expl), HasName (name), Impl (Impl), Lit (LChar, LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program, alts, pats)
 import Control.Monad (zipWithM)
 import Data.List (intersect, union, (\\))
 import Entailment (entail)
@@ -29,11 +29,11 @@ tiProgram ce as pg = runTI $ do
 tiImpls :: Infer [Impl] [Assump]
 tiImpls ce as bs = do
   ts <- mapM (\_ -> newTVar KStar) bs
-  let ns = map fst bs
+  let ns = map name bs
       scs = map toScheme ts
       as' = zipWith (:>:) ns scs ++ as
-      alts = map snd bs
-  pss <- zipWithM (tiAlts ce as) alts ts
+      alts' = map alts bs
+  pss <- zipWithM (tiAlts ce as) alts' ts
   s <- getSubst
   let ps' = apply s $ concat pss
       ts' = apply s ts
@@ -51,7 +51,7 @@ tiImpls ce as bs = do
        in return (ds, zipWith (:>:) ns scs')
 
 tiExpl :: ClassEnv -> [Assump] -> Expl -> TI [Pred]
-tiExpl ce as (n, sc, alts) = do
+tiExpl ce as (Expl n sc alts) = do
   (qs :=> t) <- freshInst sc
   ps <- tiAlts ce as alts t
   s <- getSubst
@@ -71,7 +71,7 @@ tiExpl ce as (n, sc, alts) = do
         else return ds
 
 tiAlt :: Infer Alt Typ
-tiAlt ce as (pats, e) = do
+tiAlt ce as (Alt pats e) = do
   (ps, as', ts) <- tiPats pats
   (qs, t) <- tiExp ce (as' ++ as) e
 
@@ -124,8 +124,8 @@ tiSeq ti ce as (bs : bss) = do
   return (ps ++ qs, as'' ++ as')
 
 tiBindGroup :: Infer BindGroup [Assump]
-tiBindGroup ce as (es, iss) = do
-  let as' = [u :>: sc | (u, sc, _) <- es]
+tiBindGroup ce as (BindGroup es iss) = do
+  let as' = [u :>: sc | (Expl u sc _) <- es]
   (ps, as'') <- tiSeq tiImpls ce (as' ++ as) iss
   qss <- mapM (tiExpl ce (as'' ++ as' ++ as)) es
   return (ps ++ concat qss, as'' ++ as')
@@ -168,4 +168,4 @@ restricted :: [Impl] -> Bool
 restricted = any simple
   where
     simple :: Impl -> Bool
-    simple (_, alts) = any (null . fst) alts
+    simple (Impl _ alts) = any (null . pats) alts

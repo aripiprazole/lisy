@@ -1,4 +1,18 @@
-module Ast (Lit (..), Decl (..), Exp (..), Pat (..), BindGroup, Impl, Expl, Alt, Program) where
+module Ast
+  ( Lit (..),
+    Decl (..),
+    Exp (..),
+    Pat (..),
+    BindGroup (..),
+    Impl (..),
+    Expl (..),
+    Alt (..),
+    Program (..),
+    HasName (..),
+    alts,
+    pats,
+  )
+where
 
 import Assump (Assump)
 import Name (Name)
@@ -28,16 +42,16 @@ data Decl
   deriving (Show)
 
 -- | Specifies the left and right sides of a function definition.
-type Alt = ([Pat], Exp)
+data Alt = Alt [Pat] Exp deriving (Show)
 
 -- | Specifies a function definition: <name> [<pat>] = <exp>.
-type Expl = (Name, Scheme, [Alt])
+data Expl = Expl Name Scheme [Alt] deriving (Show)
 
-type BindGroup = ([Expl], [[Impl]])
+data BindGroup = BindGroup [Expl] [[Impl]] deriving (Show)
 
-type Impl = (Name, [Alt])
+data Impl = Impl Name [Alt] deriving (Show)
 
-type Program = [BindGroup]
+newtype Program = Program [BindGroup] deriving (Show)
 
 data Exp
   = ELit Lit -- <lit>
@@ -46,3 +60,15 @@ data Exp
   | EApp Exp Exp -- <exp> <exp>
   | ELet BindGroup Exp -- let <name> = <exp> in <exp>
   deriving (Show)
+
+pats :: Alt -> [Pat]
+pats (Alt ps _) = ps
+
+alts :: Impl -> [Alt]
+alts (Impl _ alts) = alts
+
+class HasName a where name :: a -> Name
+
+instance HasName Expl where name (Expl n _ _) = n
+
+instance HasName Impl where name (Impl n _) = n

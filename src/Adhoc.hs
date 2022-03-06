@@ -42,7 +42,7 @@ data Pred = IsIn Typ Name deriving (Eq)
 -- > ([Id "Eq"], [[] :=> IsIn tInt (Id "Ord")])
 --   This example captures the fact that `Eq` is a super class of `Ord`,
 --   and `Ord` has a instance for the type `Int`.
-type Class = ([Name], [Inst])
+data Class = Class [Name] [Inst]
 
 type Inst = Qual Pred
 
@@ -90,10 +90,10 @@ type EnvTransformer = forall m. MonadFail m => ClassEnv -> m ClassEnv
 (<:>) f g ce = f ce >>= g
 
 super :: ClassEnv -> Name -> [Name]
-super ce n = case classes ce n of Just (supers, _) -> supers; Nothing -> []
+super ce n = case classes ce n of Just (Class supers _) -> supers; Nothing -> []
 
 insts :: ClassEnv -> Name -> [Inst]
-insts ce n = case classes ce n of Just (_, insts) -> insts; Nothing -> []
+insts ce n = case classes ce n of Just (Class _ insts) -> insts; Nothing -> []
 
 initialEnv :: ClassEnv
 initialEnv =
@@ -117,7 +117,7 @@ addClass :: Name -> [Name] -> EnvTransformer
 addClass n supers ce
   | isJust (classes ce n) = fail "class redefinition"
   | not (all (isJust . classes ce) supers) = fail "super class not defined"
-  | otherwise = return $ modify ce n (supers, [])
+  | otherwise = return $ modify ce n (Class supers [])
 
 -- | Add a new instance of class into the environment if the class is defined,
 -- and if there is not the instance, if not, it fails.
@@ -134,7 +134,7 @@ addInst ps p@(IsIn _ n) ce
     qs = [q | (_ :=> q) <- insts']
 
     cls :: Class
-    cls = (super ce n, (ps :=> p) : insts')
+    cls = Class (super ce n) $ (ps :=> p) : insts'
 
 -- | Checks if two predicates overlap each other.
 overlap :: Pred -> Pred -> Bool

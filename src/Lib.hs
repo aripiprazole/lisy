@@ -9,7 +9,7 @@ where
 
 import Adhoc (ClassEnv (ClassEnv), Pred (IsIn), Qual ((:=>)), addPreludeClasses, initialEnv, (<:>))
 import Assump (Assump ((:>:)))
-import Ast (Alt, BindGroup, Exp (ELit), Lit (LString, LUnit), Pat (PVar))
+import Ast (Alt (Alt), BindGroup (BindGroup), Exp (ELit), Expl (Expl), Impl (Impl), Lit (LString, LUnit), Pat (PVar))
 import Data.Maybe (fromJust)
 import Infer (tiProgram)
 import Name (Name (Id))
@@ -25,13 +25,12 @@ std :: [Assump]
 std = [Id "println" :>: Forall [] ([] :=> (tString ->> tUnit))]
 
 sample :: (Name, Maybe Scheme, [Alt])
-sample = (Id "main", Just $ Forall [] ([IsIn tInt (Id "Num")] :=> (list tString ->> tUnit)), [([PVar $ Id "args"], ELit LUnit)])
+sample = (Id "main", Just $ Forall [] ([IsIn tInt (Id "Num")] :=> (list tString ->> tUnit)), [Alt [PVar $ Id "args"] $ ELit LUnit])
 
 toBg :: [(Name, Maybe Scheme, [Alt])] -> BindGroup
 toBg g =
-  ( [(v, t, alts) | (v, Just t, alts) <- g],
-    filter (not . null) [[(v, alts) | (v, Nothing, alts) <- g]]
-  )
+  BindGroup [Expl v t alts | (v, Just t, alts) <- g] $
+    filter (not . null) [[Impl v alts | (v, Nothing, alts) <- g]]
 
 someFunc :: IO ()
 someFunc = do
