@@ -1,14 +1,13 @@
-name:                lisy
-version:             0.1.0.0
-github:              "gabrielleeg1/lisy"
-license:             BSD3
-author:              "Gabrielle"
-maintainer:          "gabrielle1guim@gmail.com"
-copyright:           "Copyright (c) 2022 Gabrielle Guimarães de Oliveira"
+name: lisy
+version: 0.1.0.0
+github: "gabrielleeg1/lisy"
+license: BSD3
+author: "Gabrielle"
+maintainer: "gabrielle1guim@gmail.com"
+copyright: "Copyright (c) 2022 Gabrielle Guimarães de Oliveira"
 
 extra-source-files:
-- README.md
-- ChangeLog.md
+  - README.md
 
 # Metadata used when publishing your package
 # synopsis:            Short description of your package
@@ -17,32 +16,32 @@ extra-source-files:
 # To avoid duplicated efforts in documentation and dealing with the
 # complications of embedding Haddock markup inside cabal files, it is
 # common to point users to the README.md file.
-description:         Please see the README on GitHub at <https://github.com/gabrielleeg1/lisy#readme>
+description: Please see the README on GitHub at <https://github.com/gabrielleeg1/lisy#readme>
 
 dependencies:
-- base >= 4.7 && < 5
+  - base >= 4.7 && < 5
 
 library:
   source-dirs: src
 
 executables:
   lisy-exe:
-    main:                Main.hs
-    source-dirs:         app
+    main: Main.hs
+    source-dirs: app
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - lisy
+      - lisy
 
 tests:
   lisy-test:
-    main:                Spec.hs
-    source-dirs:         test
+    main: Spec.hs
+    source-dirs: test
     ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
+      - -threaded
+      - -rtsopts
+      - -with-rtsopts=-N
     dependencies:
-    - lisy
+      - lisy
