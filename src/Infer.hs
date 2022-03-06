@@ -1,4 +1,4 @@
-module Infer (Infer, tiExp, tiPat, tiBindGroup, tiPats) where
+module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, tiBindGroup, tiPats) where
 
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Ambiguity (defaultSubst, split)
