@@ -9,7 +9,7 @@ where
 
 import Adhoc (ClassEnv (ClassEnv), Pred (IsIn), Qual ((:=>)), addPreludeClasses, initialEnv, (<:>))
 import Assump (Assump ((:>:)))
-import Ast (Alt, BindGroup, Exp (ELit), Lit (LString), Pat (PVar))
+import Ast (Alt, BindGroup, Exp (ELit), Lit (LString, LUnit), Pat (PVar))
 import Data.Maybe (fromJust)
 import Infer (tiProgram)
 import Name (Name (Id))
@@ -25,7 +25,7 @@ std :: [Assump]
 std = [Id "println" :>: Forall [] ([] :=> (tString ->> tUnit))]
 
 sample :: (Name, Maybe Scheme, [Alt])
-sample = (Id "main", Just $ Forall [] ([IsIn tInt (Id "Num")] :=> (list tString ->> tUnit)), [([PVar $ Id "args"], ELit $ LString "hello")])
+sample = (Id "main", Just $ Forall [] ([IsIn tInt (Id "Num")] :=> (list tString ->> tUnit)), [([PVar $ Id "args"], ELit LUnit)])
 
 toBg :: [(Name, Maybe Scheme, [Alt])] -> BindGroup
 toBg g =

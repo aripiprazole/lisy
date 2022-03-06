@@ -13,7 +13,7 @@ mgu (TApp a b) (TApp a' b') = do
 mgu (TVar u) t = varBind u t
 mgu t (TVar u) = varBind u t
 mgu (TCon tc1) (TCon tc2) | tc1 == tc2 = return nullSubst
-mgu _ _ = fail "types do not unify"
+mgu t1 t2 = fail $ concat ["types ", show t1, " and ", show t2, " do not unify"]
 
 -- | Unifies type variable to a type,
 -- if `u` is not in free variables of `t`,

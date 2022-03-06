@@ -69,13 +69,20 @@ data Typ -- τ
     TGen Int
   deriving (Eq)
 
-data TyCon = TyCon Name Kind deriving (Eq, Show)
+data TyCon = TyCon Name Kind deriving (Eq)
 
-data TyVar = TyVar Name Kind deriving (Eq, Show)
+data TyVar = TyVar Name Kind deriving (Eq)
+
+instance Show TyVar where
+  show (TyVar n k) = concat [show n, " : ", show k]
+
+instance Show TyCon where
+  show (TyCon n k) = concat [show n, " : ", show k]
 
 instance Show Typ where
   show (TGen i) = "v" ++ show i
   show (TApp (TApp a b) c) | a == tArrow = concat [show b, " -> ", show c]
+  show (TApp a b@(TApp _ _)) = concat [show a, " (", show b, ")"]
   show (TApp a b) = concat [show a, " ", show b]
   show (TCon (TyCon name _)) = show name
   show (TVar (TyVar name _)) = "'" ++ show name

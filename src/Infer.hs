@@ -3,7 +3,7 @@ module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, ti
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Ambiguity (defaultSubst, split)
 import Assump (Assump ((:>:)), find)
-import Ast (Alt, BindGroup, Exp (EApp, EConst, ELet, ELit, EVar), Expl, Impl, Lit (LChar, LInt, LRat, LString), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program)
+import Ast (Alt, BindGroup, Exp (EApp, EConst, ELet, ELit, EVar), Expl, Impl, Lit (LChar, LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program)
 import Control.Monad (zipWithM)
 import Data.List (intersect, union, (\\))
 import Entailment (entail)
@@ -11,7 +11,7 @@ import Name (Name (Id))
 import Reduction (reduce)
 import Scheme (Scheme, quantify, toScheme)
 import TI (TI (TI), freshInst, getSubst, newTVar, runTI, unify)
-import Types (Kind (KStar), Typ, Types (apply, ftv), tChar, tString, (->>), (@@))
+import Types (Kind (KStar), Typ, Types (apply, ftv), tChar, tString, tUnit, (->>), (@@))
 
 -- | Γ;P | A ⊢ e : τ, where Γ is a class environment, P is a set of predicates,
 -- A is a set of assumptions, e is an expression, and τ the corresponding type.
@@ -19,13 +19,12 @@ import Types (Kind (KStar), Typ, Types (apply, ftv), tChar, tString, (->>), (@@)
 -- the input differs of the output.
 type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
 
-tiProgram :: ClassEnv -> [Assump] -> Program -> [Assump]
 tiProgram ce as pg = runTI $ do
   (ps, as') <- tiSeq tiBindGroup ce as pg
   s <- getSubst
   rs <- reduce ce $ apply s ps
   s' <- defaultSubst ce [] rs
-  return $ apply (s' @@ s) as'
+  return (s', s, rs, apply (s' @@ s) as')
 
 tiImpls :: Infer [Impl] [Assump]
 tiImpls ce as bs = do
@@ -107,6 +106,7 @@ tiExp ce as (ELet bg e) = do
   return (ps ++ qs, t)
 
 tiLit :: Lit -> TI ([Pred], Typ)
+tiLit LUnit = return ([], tUnit)
 tiLit (LChar _) = return ([], tChar)
 tiLit (LString _) = return ([], tString)
 tiLit (LRat _) = do

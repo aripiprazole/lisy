@@ -10,6 +10,7 @@ data Lit
   | LChar Char
   | LString String
   | LRat Rational
+  | LUnit
   deriving (Eq, Ord, Show)
 
 data Pat
