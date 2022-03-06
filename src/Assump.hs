@@ -8,6 +8,9 @@ import Types (Types (apply, ftv))
 -- | Assumption about a type variable.
 data Assump = Name :>: Scheme
 
+instance Show Assump where
+  show (n :>: s) = show n ++ " : " ++ show s
+
 instance Types Assump where
   apply s (n :>: sc) = n :>: apply s sc
   ftv (_ :>: sc) = ftv sc

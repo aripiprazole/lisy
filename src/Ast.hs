@@ -19,10 +19,12 @@ data Pat
   | PLit Lit -- <lit>
   | PNpk Name Int -- <n> + <k>
   | PCon Assump [Pat] -- <name> [<pat>]
+  deriving (Show)
 
 data Decl
   = DVal Name Typ -- <name> : <typ>
   | DLet Name [Pat] Exp -- <name> [<pat>] = <exp>
+  deriving (Show)
 
 -- | Specifies the left and right sides of a function definition.
 type Alt = ([Pat], Exp)
@@ -42,3 +44,4 @@ data Exp
   | EConst Assump
   | EApp Exp Exp -- <exp> <exp>
   | ELet BindGroup Exp -- let <name> = <exp> in <exp>
+  deriving (Show)

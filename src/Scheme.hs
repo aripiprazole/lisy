@@ -8,6 +8,10 @@ import Types (HasKind (kind), Kind, Subst, TyVar, Typ (TGen), Types (apply, ftv)
 -- by `ks !! n`.
 data Scheme = Forall [Kind] (Qual Typ) deriving (Eq)
 
+instance Show Scheme where
+  show (Forall [] (_ :=> t)) = show t
+  show (Forall vars (_ :=> t)) = concat ["forall ", unwords (map show vars), ". ", show t]
+
 instance Types Scheme where
   apply s (Forall ks qt) = Forall ks (apply s qt)
   ftv (Forall ks qt) = ftv qt

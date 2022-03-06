@@ -75,7 +75,8 @@ data TyVar = TyVar Name Kind deriving (Eq)
 
 instance Show Typ where
   show (TGen i) = "v" ++ show i
-  show (TApp a b) = concat ["(", show a, " ", show b, ")"]
+  show (TApp (TApp a b) c) | a == tArrow = concat [show b, " -> ", show c]
+  show (TApp a b) = concat [show a, " ", show b]
   show (TCon (TyCon name _)) = show name
   show (TVar (TyVar name _)) = "'" ++ show name
 
@@ -96,6 +97,10 @@ instance HasKind Typ where
   kind (TApp a _) = case kind a of
     (KFun _ k) -> k
     KStar -> KStar
+
+instance Show Kind where
+  show KStar = "*"
+  show (KFun k1 k2) = concat [show k1, " -> ", show k2]
 
 class Types a where
   -- | Replaces all ocurrences of type variables in a type with the
