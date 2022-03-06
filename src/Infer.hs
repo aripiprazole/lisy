@@ -14,6 +14,23 @@ import Types (Kind (KStar), Typ, tChar, tString, (->>))
 -- the input differs of the output.
 type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
 
+-- | Specifies the left and right sides of a function definition.
+-- like in: <name> [<pat>] = <exp>.
+type Alt = ([Pat], Exp)
+
+tiAlt :: Infer Alt Typ
+tiAlt ce as (pats, e) = do
+  (ps, as', ts) <- tiPats pats
+  (qs, t) <- tiExp ce (as' ++ as) e
+
+  return (ps ++ qs, foldr (->>) t ts)
+
+tiAlts :: ClassEnv -> [Assump] -> [Alt] -> Typ -> TI [Pred]
+tiAlts ce as alts t = do
+  psts <- mapM (tiAlt ce as) alts
+  mapM_ (unify t . snd) psts
+  return $ concatMap fst psts
+
 tiExp :: Infer Exp Typ
 tiExp ce as (ELit l) = do
   (ps, t) <- tiLit l
