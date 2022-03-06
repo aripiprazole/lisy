@@ -15,6 +15,7 @@ module Types
     tInt,
     tDouble,
     tFloat,
+    tString,
     tList,
     tArrow,
     tTuple2,

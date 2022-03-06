@@ -1,86 +1,82 @@
-{-# LANGUAGE DeriveFunctor #-}
+module Infer (Infer, tiExp, tiPat, tiBindGroup, tiPats) where
 
-module Infer
-  ( TI (..),
-    State,
-    runTI,
-    getSubst,
-    unify,
-    extSubst,
-    newTVar,
-    freshInst,
-    Instantiate (..),
-  )
-where
+import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
+import Assump (Assump ((:>:)), find)
+import Ast (BindGroup, Exp (EApp, EConst, ELet, ELit, EVar), Lit (LChar, LInt, LRat, LString), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard))
+import Name (Name (Id))
+import Scheme (toScheme)
+import TI (TI (TI), freshInst, newTVar, unify)
+import Types (Kind (KStar), Typ, tChar, tString, (->>))
 
-import Adhoc (Pred (IsIn), Qual ((:=>)))
-import Scheme (Scheme (Forall))
-import Types (Kind, Subst, TyVar (TyVar), Typ (TApp, TGen, TVar), Types (apply), enumId, nullSubst, (@@))
-import Unify (mgu)
+-- | Γ;P | A ⊢ e : τ, where Γ is a class environment, P is a set of predicates,
+-- A is a set of assumptions, e is an expression, and τ the corresponding type.
+-- Judgments like this can be thought as 5-tuple, except by using functions,
+-- the input differs of the output.
+type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
 
--- | Current fresh types state.
-type State = Int
+tiExp :: Infer Exp Typ
+tiExp ce as (ELit l) = do
+  (ps, t) <- tiLit l
+  return (ps, t)
+tiExp ce as (EVar n) = do
+  sc <- find n as
+  (ps :=> t) <- freshInst sc
+  return (ps, t)
+tiExp ce as (EConst (n :>: sc)) = do
+  (ps :=> t) <- freshInst sc
+  return (ps, t)
+tiExp ce as (EApp f e) = do
+  (qs, tf) <- tiExp ce as f
+  (ps, te) <- tiExp ce as e
+  t <- newTVar KStar
+  unify (te ->> t) tf
+  return (ps ++ qs, t)
+tiExp ce as (ELet bg e) = do
+  (ps, as') <- tiBindGroup ce as bg
+  (qs, t) <- tiExp ce as' e
+  return (ps ++ qs, t)
 
--- | Type inference monad.
-newtype TI a = TI (Subst -> State -> (Subst, State, a)) deriving (Functor)
+tiLit :: Lit -> TI ([Pred], Typ)
+tiLit (LChar _) = return ([], tChar)
+tiLit (LString _) = return ([], tString)
+tiLit (LRat _) = do
+  u <- newTVar KStar
+  return ([IsIn u (Id "Fractional")], u)
+tiLit (LInt _) = do
+  u <- newTVar KStar
+  return ([IsIn u (Id "Num")], u)
 
-instance Applicative TI where
-  pure x = TI (\s i -> (s, i, x))
-  (<*>) (TI f) (TI f') = TI f''
-    where
-      f'' s i =
-        let (s', i', g) = f s i
-         in let (s'', i'', x) = f' s' i'
-             in (s'', i'', g x)
+tiBindGroup :: Infer BindGroup [Assump]
+tiBindGroup = undefined
 
-instance Monad TI where
-  (>>=) (TI f) g = TI f'
-    where
-      f' s i =
-        let (s', i', x) = f s i
-         in let TI g' = g x
-             in g' s' i'
+tiPat :: Pat -> TI ([Pred], [Assump], Typ)
+tiPat (PVar n) = do
+  u <- newTVar KStar
+  return ([], [n :>: toScheme u], u)
+tiPat PWildcard = do
+  u <- newTVar KStar
+  return ([], [], u)
+tiPat (PAs n pat) = do
+  (ps, as, t) <- tiPat pat
+  return (ps, (n :>: toScheme t) : as, t)
+tiPat (PLit lit) = do
+  (ps, t) <- tiLit lit
+  return (ps, [], t)
+tiPat (PNpk n i) = do
+  u <- newTVar KStar
+  return ([IsIn u (Id "Integral")], [], u)
+tiPat (PCon (n :>: sc) pats) = do
+  (ps, as, ts) <- tiPats pats
+  t <- newTVar KStar
+  (qs :=> t') <- freshInst sc
+  unify t' (foldr (->>) t ts)
 
-instance MonadFail TI where
-  fail msg = TI (\_ _ -> error $ "type inference failed: " ++ msg)
+  return (ps ++ qs, as, t)
 
-runTI :: TI a -> a
-runTI (TI f) = x where (_, _, x) = f nullSubst 0
-
-getSubst :: TI Subst
-getSubst = TI (\s i -> (s, i, s))
-
-unify :: Typ -> Typ -> TI ()
-unify t1 t2 = do
-  s <- getSubst
-  u <- mgu (apply s t1) (apply s t2)
-  extSubst u
-
--- | Composes s' with the context substituition.
-extSubst :: Subst -> TI ()
-extSubst s' = TI (\s i -> (s' @@ s, i, ()))
-
--- | Gets a fresh TVar with kind k.
-newTVar :: Kind -> TI Typ
-newTVar k = TI (\s n -> let u = TyVar (enumId n) k in (s, n + 1, TVar u))
-
--- | Instantiates a scheme with new type variables of apropriated kinds.
-freshInst :: Scheme -> TI (Qual Typ)
-freshInst (Forall ks qt) = do
-  ts <- mapM newTVar ks
-  return $ inst ts qt
-
-class Instantiate a where inst :: [Typ] -> a -> a
-
-instance Instantiate a => Instantiate [a] where inst ts = map (inst ts)
-
-instance Instantiate Typ where
-  inst ts (TApp a b) = TApp (inst ts a) (inst ts b)
-  inst ts (TGen n) = ts !! n
-  inst ts t = t
-
-instance Instantiate Pred where
-  inst ts (IsIn t n) = IsIn (inst ts t) n
-
-instance Instantiate a => Instantiate (Qual a) where
-  inst ts (ps :=> t) = inst ts ps :=> inst ts t
+tiPats :: [Pat] -> TI ([Pred], [Assump], [Typ])
+tiPats pats = do
+  pats' <- mapM tiPat pats
+  let ps = concat [ps' | (ps', _, _) <- pats']
+      as = concat [as' | (_, as', _) <- pats']
+      ts = concat [[t] | (_, _, t) <- pats']
+  return (ps, as, ts)
