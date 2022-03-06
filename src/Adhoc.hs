@@ -48,6 +48,7 @@ instance Show Pred where
   show (IsIn t n) = concat [show n, " ", show t]
 
 instance Show a => Show (Qual a) where
+  show ([] :=> t) = show t
   show (ps :=> t) = unwords (map show ps) ++ " => " ++ show t
 
 instance Types a => Types (Qual a) where

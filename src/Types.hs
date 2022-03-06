@@ -69,9 +69,9 @@ data Typ -- τ
     TGen Int
   deriving (Eq)
 
-data TyCon = TyCon Name Kind deriving (Eq)
+data TyCon = TyCon Name Kind deriving (Eq, Show)
 
-data TyVar = TyVar Name Kind deriving (Eq)
+data TyVar = TyVar Name Kind deriving (Eq, Show)
 
 instance Show Typ where
   show (TGen i) = "v" ++ show i

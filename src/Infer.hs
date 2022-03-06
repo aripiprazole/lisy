@@ -1,4 +1,4 @@
-module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, tiBindGroup, tiPats) where
+module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, tiBindGroup, tiPats, tiSeq) where
 
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Ambiguity (defaultSubst, split)
@@ -121,7 +121,7 @@ tiSeq ti ce as [] = return ([], [])
 tiSeq ti ce as (bs : bss) = do
   (ps, as') <- ti ce as bs
   (qs, as'') <- tiSeq ti ce (as' ++ as) bss
-  return (ps ++ qs, as'')
+  return (ps ++ qs, as'' ++ as')
 
 tiBindGroup :: Infer BindGroup [Assump]
 tiBindGroup ce as (es, iss) = do
