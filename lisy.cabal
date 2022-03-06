@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Adhoc
+      Ambiguity
       Assump
       Ast
       Entailment
