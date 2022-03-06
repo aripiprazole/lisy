@@ -1,3 +1,5 @@
+{-# LANGUAGE RankNTypes #-}
+
 module Adhoc
   ( Qual (..),
     Pred (..),
@@ -81,7 +83,7 @@ data ClassEnv = ClassEnv
 -- transformed to add new entries, and it is possible to result in errors,
 -- like in the case of redefining class, and etc, so `Maybe` is used to
 -- allow the possibility of errors.
-type EnvTransformer = ClassEnv -> Maybe ClassEnv
+type EnvTransformer = forall m. MonadFail m => ClassEnv -> m ClassEnv
 
 -- | Combines two env transformers
 (<:>) :: EnvTransformer -> EnvTransformer -> EnvTransformer
@@ -158,6 +160,6 @@ addPreludeClasses = addCoreClasses <:> addNumClasses
         <:> addClass (Id "Real") [Id "Num", Id "Ord"]
         <:> addClass (Id "Fractional") [Id "Num"]
         <:> addClass (Id "Integral") [Id "Real", Id "Enum"]
-        <:> addClass (Id "RealFrac") [Id "Real", Id "Fraction"]
+        <:> addClass (Id "RealFrac") [Id "Real", Id "Fractional"]
         <:> addClass (Id "Floating") [Id "Fractional"]
         <:> addClass (Id "RealFloat") [Id "RealFrac", Id "Floating"]

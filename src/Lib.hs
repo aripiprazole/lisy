@@ -3,35 +3,29 @@ module Lib
     sample,
     std,
     toBg,
-    sample2,
+    programEnv,
   )
 where
 
-import Adhoc (Pred (IsIn), Qual ((:=>)), initialEnv)
+import Adhoc (ClassEnv (ClassEnv), Pred (IsIn), Qual ((:=>)), addPreludeClasses, initialEnv, (<:>))
 import Assump (Assump ((:>:)))
 import Ast (Alt, BindGroup, Exp (ELit), Lit (LString), Pat (PVar))
+import Data.Maybe (fromJust)
 import Infer (tiProgram)
 import Name (Name (Id))
+import Reduction (simplify)
 import Scheme (Scheme (Forall), toScheme)
 import TI (Instantiate (inst))
-import Types (Kind (KFun, KStar), TyVar (TyVar), Typ (TGen, TVar), list, tString, tUnit, (->>))
+import Types (Kind (KFun, KStar), TyVar (TyVar), Typ (TGen, TVar), list, tInt, tString, tUnit, (->>))
+
+programEnv :: IO ClassEnv
+programEnv = addPreludeClasses initialEnv
 
 std :: [Assump]
 std = [Id "println" :>: Forall [] ([] :=> (tString ->> tUnit))]
 
-sample :: [BindGroup]
-sample =
-  [ ( [ ( Id "main",
-          toScheme tUnit,
-          [([PVar $ Id "x"], ELit $ LString "hello")]
-        )
-      ],
-      []
-    )
-  ]
-
-sample2 :: (Name, Maybe Scheme, [Alt])
-sample2 = (Id "main", Just $ Forall [] ([] :=> (list tString ->> tUnit)), [([PVar $ Id "args"], ELit $ LString "hello")])
+sample :: (Name, Maybe Scheme, [Alt])
+sample = (Id "main", Just $ Forall [] ([IsIn tInt (Id "Num")] :=> (list tString ->> tUnit)), [([PVar $ Id "args"], ELit $ LString "hello")])
 
 toBg :: [(Name, Maybe Scheme, [Alt])] -> BindGroup
 toBg g =
@@ -41,10 +35,12 @@ toBg g =
 
 someFunc :: IO ()
 someFunc = do
-  let pg = tiProgram initialEnv std sample
+  pe <- programEnv
+  let pg = tiProgram pe std [toBg [sample]]
   let a = TVar (TyVar (Id "a") KStar)
   let b = TVar (TyVar (Id "b") KStar)
 
+  print $ simplify pe [IsIn tInt (Id "Num")]
   print std
   print pg
   return ()
