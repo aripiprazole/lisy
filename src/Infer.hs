@@ -1,12 +1,17 @@
 module Infer (Infer, tiExp, tiPat, tiBindGroup, tiPats) where
 
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
+import Ambiguity (defaultSubst, split)
 import Assump (Assump ((:>:)), find)
-import Ast (BindGroup, Exp (EApp, EConst, ELet, ELit, EVar), Lit (LChar, LInt, LRat, LString), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard))
+import Ast (Alt, BindGroup, Exp (EApp, EConst, ELet, ELit, EVar), Expl, Impl, Lit (LChar, LInt, LRat, LString), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program)
+import Control.Monad (zipWithM)
+import Data.List (intersect, union, (\\))
+import Entailment (entail)
 import Name (Name (Id))
-import Scheme (toScheme)
-import TI (TI (TI), freshInst, newTVar, unify)
-import Types (Kind (KStar), Typ, tChar, tString, (->>))
+import Reduction (reduce)
+import Scheme (Scheme, quantify, toScheme)
+import TI (TI (TI), freshInst, getSubst, newTVar, runTI, unify)
+import Types (Kind (KStar), Typ, Types (apply, ftv), tChar, tString, (->>), (@@))
 
 -- | Γ;P | A ⊢ e : τ, where Γ is a class environment, P is a set of predicates,
 -- A is a set of assumptions, e is an expression, and τ the corresponding type.
@@ -14,9 +19,57 @@ import Types (Kind (KStar), Typ, tChar, tString, (->>))
 -- the input differs of the output.
 type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
 
--- | Specifies the left and right sides of a function definition.
--- like in: <name> [<pat>] = <exp>.
-type Alt = ([Pat], Exp)
+tiProgram :: ClassEnv -> [Assump] -> Program -> [Assump]
+tiProgram ce as pg = runTI $ do
+  (ps, as') <- tiSeq tiBindGroup ce as pg
+  s <- getSubst
+  rs <- reduce ce $ apply s ps
+  s' <- defaultSubst ce [] rs
+  return $ apply (s' @@ s) as'
+
+tiImpls :: Infer [Impl] [Assump]
+tiImpls ce as bs = do
+  ts <- mapM (\_ -> newTVar KStar) bs
+  let ns = map fst bs
+      scs = map toScheme ts
+      as' = zipWith (:>:) ns scs ++ as
+      alts = map snd bs
+  pss <- zipWithM (tiAlts ce as) alts ts
+  s <- getSubst
+  let ps' = apply s $ concat pss
+      ts' = apply s ts
+      fs = ftv $ apply s as
+      vss = map ftv ts'
+      gs = foldr1 union vss \\ fs
+  (ds, rs) <- split ce fs (foldr1 intersect vss) ps'
+  if restricted bs
+    then
+      let gs' = gs \\ ftv rs
+          scs' = map (quantify gs' . ([] :=>)) ts'
+       in return (ds ++ rs, zipWith (:>:) ns scs')
+    else
+      let scs' = map (quantify gs . (rs :=>)) ts'
+       in return (ds, zipWith (:>:) ns scs')
+
+tiExpl :: ClassEnv -> [Assump] -> Expl -> TI [Pred]
+tiExpl ce as (n, sc, alts) = do
+  (qs :=> t) <- freshInst sc
+  ps <- tiAlts ce as alts t
+  s <- getSubst
+  let qs' = apply s qs
+      t' = apply s t
+      fs = ftv (apply s as)
+      gs = ftv t' \\ fs
+      sc' = quantify gs (qs' :=> t')
+      ps' = filter (not . entail ce qs') (apply s ps)
+  (ds, rs) <- split ce fs gs ps'
+
+  if sc /= sc'
+    then fail "signature too general"
+    else
+      if not $ null rs
+        then fail "context too weak"
+        else return ds
 
 tiAlt :: Infer Alt Typ
 tiAlt ce as (pats, e) = do
@@ -63,8 +116,19 @@ tiLit (LInt _) = do
   u <- newTVar KStar
   return ([IsIn u (Id "Num")], u)
 
+tiSeq :: Infer bg [Assump] -> Infer [bg] [Assump]
+tiSeq ti ce as [] = return ([], [])
+tiSeq ti ce as (bs : bss) = do
+  (ps, as') <- ti ce as bs
+  (qs, as'') <- tiSeq ti ce (as' ++ as) bss
+  return (ps ++ qs, as'')
+
 tiBindGroup :: Infer BindGroup [Assump]
-tiBindGroup = undefined
+tiBindGroup ce as (es, iss) = do
+  let as' = [u :>: sc | (u, sc, _) <- es]
+  (ps, as'') <- tiSeq tiImpls ce (as' ++ as) iss
+  qss <- mapM (tiExpl ce (as'' ++ as' ++ as)) es
+  return (ps ++ concat qss, as'' ++ as')
 
 tiPat :: Pat -> TI ([Pred], [Assump], Typ)
 tiPat (PVar n) = do
@@ -97,3 +161,11 @@ tiPats pats = do
       as = concat [as' | (_, as', _) <- pats']
       ts = concat [[t] | (_, _, t) <- pats']
   return (ps, as, ts)
+
+-- | A set of impl is restricted when a impl is simple, being simple is
+-- when it has an alternative with no left-hand patterns.
+restricted :: [Impl] -> Bool
+restricted = any simple
+  where
+    simple :: Impl -> Bool
+    simple (_, alts) = any (null . fst) alts

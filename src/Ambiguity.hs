@@ -1,4 +1,4 @@
-module Ambiguity (split, defaultedPreds) where
+module Ambiguity (split, defaultedPreds, defaultSubst) where
 
 import Adhoc (ClassEnv (ClassEnv, defaults), Pred (IsIn))
 import Data.List (partition, (\\))

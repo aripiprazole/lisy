@@ -1,7 +1,8 @@
-module Ast (Lit (..), Decl (..), Exp (..), Pat (..), BindGroup (..)) where
+module Ast (Lit (..), Decl (..), Exp (..), Pat (..), BindGroup, Impl, Expl, Alt, Program) where
 
 import Assump (Assump)
 import Name (Name)
+import Scheme (Scheme)
 import Types (Typ)
 
 data Lit
@@ -23,7 +24,17 @@ data Decl
   = DVal Name Typ -- <name> : <typ>
   | DLet Name [Pat] Exp -- <name> [<pat>] = <exp>
 
-data BindGroup
+-- | Specifies the left and right sides of a function definition.
+type Alt = ([Pat], Exp)
+
+-- | Specifies a function definition: <name> [<pat>] = <exp>.
+type Expl = (Name, Scheme, [Alt])
+
+type BindGroup = ([Expl], [[Impl]])
+
+type Impl = (Name, [Alt])
+
+type Program = [BindGroup]
 
 data Exp
   = ELit Lit -- <lit>
