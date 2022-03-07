@@ -1,6 +1,6 @@
 module Main where
 
-import Lib
+import Lib (entrypoint)
 
 main :: IO ()
-main = someFunc
+main = entrypoint
