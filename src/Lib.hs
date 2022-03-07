@@ -9,7 +9,6 @@ where
 
 import Adhoc (ClassEnv (ClassEnv), Pred (IsIn), Qual ((:=>)), addInst, addPreludeClasses, initialEnv, (<:>))
 import Assump (Assump ((:>:)))
-import Ast (Alt (Alt), BindGroup (BindGroup), Decl, Exp (EApp, ELit, EVar), Expl (Expl), Impl (Impl), Lit (LString, LUnit), Pat (PVar), Program (Program))
 import Data.Maybe (fromJust)
 import Data.Text (Text, intercalate, pack)
 import Entailment (entail)
@@ -47,7 +46,6 @@ sample =
     ]
 
 -- | Program entrypoint
--- TODO: split ast to Resolved, Typed and Base (directly from parsing).
 -- TODO: do static analysis for dependency analisys,
 -- and make kinds the real values.
 someFunc :: IO ()

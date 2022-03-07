@@ -3,12 +3,13 @@ module Infer (Infer, tiProgram, tiImpls, tiExpl, tiAlt, tiAlts, tiExp, tiPat, ti
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Ambiguity (defaultSubst, split)
 import Assump (Assump ((:>:)), find)
-import Ast (Alt (Alt, pats), BindGroup (BindGroup), Exp (EApp, EConst, ELet, ELit, EVar), Expl (Expl), Impl (Impl, iAlts, iName), Lit (LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program (Program))
+import Ast (Lit (LInt, LRat, LString, LUnit))
 import Control.Monad (zipWithM)
 import Data.List (intersect, union, (\\))
 import Entailment (entail)
 import Name (Name (Id))
 import Reduction (reduce)
+import ResolvedAst (RAlt (RAlt, pats), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RExpl (RExpl), RImpl (RImpl, iAlts, iName), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram))
 import Scheme (Scheme, quantify, toScheme)
 import TI (TI (TI), freshInst, getSubst, newTVar, runTI, unify)
 import Types (Kind (KStar), Subst (Subst), Typ, Types (apply, ftv), tChar, tString, tUnit, (->>), (@@))
@@ -22,16 +23,16 @@ type Infer e t = ClassEnv -> [Assump] -> e -> TI ([Pred], t)
 tiProgram ::
   ClassEnv ->
   [Assump] ->
-  Program ->
+  RProgram ->
   (Subst, Subst, [Pred], [Assump])
-tiProgram ce as (Program pg) = runTI $ do
+tiProgram ce as (RProgram pg) = runTI $ do
   (ps, as') <- tiSeq tiBindGroup ce as pg
   s <- getSubst
   rs <- reduce ce $ apply s ps
   s' <- defaultSubst ce [] rs
   return (s', s, rs, apply (s' @@ s) as')
 
-tiImpls :: Infer [Impl] [Assump]
+tiImpls :: Infer [RImpl] [Assump]
 tiImpls ce as bs = do
   ts <- mapM (\_ -> newTVar KStar) bs
   let ns = map iName bs
@@ -55,8 +56,8 @@ tiImpls ce as bs = do
       let scs' = map (quantify gs . (rs :=>)) ts'
        in return (ds, zipWith (:>:) ns scs')
 
-tiExpl :: ClassEnv -> [Assump] -> Expl -> TI [Pred]
-tiExpl ce as (Expl n sc alts) = do
+tiExpl :: ClassEnv -> [Assump] -> RExpl -> TI [Pred]
+tiExpl ce as (RExpl n sc alts) = do
   (qs :=> t) <- freshInst sc
   ps <- tiAlts ce as alts t
   s <- getSubst
@@ -75,37 +76,37 @@ tiExpl ce as (Expl n sc alts) = do
         then fail "context too weak"
         else return ds
 
-tiAlt :: Infer Alt Typ
-tiAlt ce as (Alt pats e) = do
+tiAlt :: Infer RAlt Typ
+tiAlt ce as (RAlt pats e) = do
   (ps, as', ts) <- tiPats pats
   (qs, t) <- tiExp ce (as' ++ as) e
 
   return (ps ++ qs, foldr (->>) t ts)
 
-tiAlts :: ClassEnv -> [Assump] -> [Alt] -> Typ -> TI [Pred]
+tiAlts :: ClassEnv -> [Assump] -> [RAlt] -> Typ -> TI [Pred]
 tiAlts ce as alts t = do
   psts <- mapM (tiAlt ce as) alts
   mapM_ (unify t . snd) psts
   return $ concatMap fst psts
 
-tiExp :: Infer Exp Typ
-tiExp ce as (ELit l) = do
+tiExp :: Infer RExp Typ
+tiExp ce as (RELit l) = do
   (ps, t) <- tiLit l
   return (ps, t)
-tiExp ce as (EVar n) = do
+tiExp ce as (REVar n) = do
   sc <- find n as
   (ps :=> t) <- freshInst sc
   return (ps, t)
-tiExp ce as (EConst (n :>: sc)) = do
+tiExp ce as (REConst (n :>: sc)) = do
   (ps :=> t) <- freshInst sc
   return (ps, t)
-tiExp ce as (EApp f e) = do
+tiExp ce as (REApp f e) = do
   (qs, tf) <- tiExp ce as f
   (ps, te) <- tiExp ce as e
   t <- newTVar KStar
   unify (te ->> t) tf
   return (ps ++ qs, t)
-tiExp ce as (ELet bg e) = do
+tiExp ce as (RELet bg e) = do
   (ps, as') <- tiBindGroup ce as bg
   (qs, t) <- tiExp ce (as ++ as') e
   return (ps ++ qs, t)
@@ -127,30 +128,30 @@ tiSeq ti ce as (bs : bss) = do
   (qs, as'') <- tiSeq ti ce (as' ++ as) bss
   return (ps ++ qs, as'' ++ as')
 
-tiBindGroup :: Infer BindGroup [Assump]
-tiBindGroup ce as (BindGroup es iss) = do
-  let as' = [u :>: sc | (Expl u sc _) <- es]
+tiBindGroup :: Infer RBindGroup [Assump]
+tiBindGroup ce as (RBindGroup es iss) = do
+  let as' = [u :>: sc | (RExpl u sc _) <- es]
   (ps, as'') <- tiSeq tiImpls ce (as' ++ as) iss
   qss <- mapM (tiExpl ce (as'' ++ as' ++ as)) es
   return (ps ++ concat qss, as'' ++ as')
 
-tiPat :: Pat -> TI ([Pred], [Assump], Typ)
-tiPat (PVar n) = do
+tiPat :: RPat -> TI ([Pred], [Assump], Typ)
+tiPat (RPVar n) = do
   u <- newTVar KStar
   return ([], [n :>: toScheme u], u)
-tiPat PWildcard = do
+tiPat RPWildcard = do
   u <- newTVar KStar
   return ([], [], u)
-tiPat (PAs n pat) = do
+tiPat (RPAs n pat) = do
   (ps, as, t) <- tiPat pat
   return (ps, (n :>: toScheme t) : as, t)
-tiPat (PLit lit) = do
+tiPat (RPLit lit) = do
   (ps, t) <- tiLit lit
   return (ps, [], t)
-tiPat (PNpk n i) = do
+tiPat (RPNpk n i) = do
   u <- newTVar KStar
   return ([IsIn u (Id "Integral")], [], u)
-tiPat (PCon (n :>: sc) pats) = do
+tiPat (RPCon (n :>: sc) pats) = do
   (ps, as, ts) <- tiPats pats
   t <- newTVar KStar
   (qs :=> t') <- freshInst sc
@@ -158,7 +159,7 @@ tiPat (PCon (n :>: sc) pats) = do
 
   return (ps ++ qs, as, t)
 
-tiPats :: [Pat] -> TI ([Pred], [Assump], [Typ])
+tiPats :: [RPat] -> TI ([Pred], [Assump], [Typ])
 tiPats pats = do
   pats' <- mapM tiPat pats
   let ps = concat [ps' | (ps', _, _) <- pats']
@@ -168,8 +169,8 @@ tiPats pats = do
 
 -- | A set of impl is restricted when a impl is simple, being simple is
 -- when it has an alternative with no left-hand patterns.
-restricted :: [Impl] -> Bool
+restricted :: [RImpl] -> Bool
 restricted = any simple
   where
-    simple :: Impl -> Bool
-    simple (Impl _ alts) = any (null . pats) alts
+    simple :: RImpl -> Bool
+    simple (RImpl _ alts) = any (null . pats) alts

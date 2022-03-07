@@ -34,6 +34,7 @@ library
       Name
       Parser
       Reduction
+      ResolvedAst
       Scheme
       TI
       Types

@@ -4,7 +4,7 @@ module Parser (module Parser) where
 
 import Adhoc (Qual ((:=>)))
 import Assump (Assump ((:>:)))
-import Ast (Alt (Alt), BindGroup (BindGroup), Decl, Exp (EApp, ELet, ELit, EVar), Expl (Expl), Lit (LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PVar, PWildcard), Program (Program), bgFromTuples)
+import Ast (Alt (Alt), BindGroup (BindGroup), Exp (EApp, ELet, ELit, EVar), Expl (Expl), Lit (LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PVar, PWildcard), Program (Program))
 import Control.Monad (void)
 import Data.Functor (($>), (<&>))
 import Data.Maybe (fromMaybe)
@@ -75,7 +75,7 @@ pBindGroup = do
       then pAlt
       else fail "the alternatives for a function must be below the definition"
 
-  return $ bgFromTuples $ (n, Just sc, alts) : [(n, Nothing, [a]) | a <- alts]
+  return $ BindGroup [Expl n alts]
 
 pPat :: Parser Pat
 pPat = choice [pCon, pPLit, pAs, pVar, pGroup, pWildcard] <?> "pattern"
@@ -120,7 +120,7 @@ pExp = choice [pLet, pApp] <?> "expression"
       e <- pExp
       keyword "in"
 
-      ELet (bgFromTuples [(n, Nothing, [Alt [] e])]) <$> pExp
+      ELet (BindGroup [Expl n [Alt [] e]]) <$> pExp
 
     pApp :: Parser Exp
     pApp = lexeme $ do
