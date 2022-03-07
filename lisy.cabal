@@ -32,6 +32,7 @@ library
       Infer
       Lib
       Name
+      Parser
       Reduction
       Scheme
       TI
@@ -43,6 +44,8 @@ library
       src
   build-depends:
       base >=4.7 && <5
+    , megaparsec >=9.0.1
+    , text >=1.2.4.1
   default-language: Haskell2010
 
 executable lisy-exe
@@ -55,6 +58,8 @@ executable lisy-exe
   build-depends:
       base >=4.7 && <5
     , lisy
+    , megaparsec >=9.0.1
+    , text >=1.2.4.1
   default-language: Haskell2010
 
 test-suite lisy-test
@@ -68,4 +73,6 @@ test-suite lisy-test
   build-depends:
       base >=4.7 && <5
     , lisy
+    , megaparsec >=9.0.1
+    , text >=1.2.4.1
   default-language: Haskell2010

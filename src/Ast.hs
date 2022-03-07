@@ -8,6 +8,7 @@ module Ast
     Expl (..),
     Alt (..),
     Program (..),
+    bgFromTuples,
   )
 where
 
@@ -18,7 +19,6 @@ import Types (Typ)
 
 data Lit
   = LInt Int
-  | LChar Char
   | LString String
   | LRat Rational
   | LUnit
@@ -62,3 +62,8 @@ data Exp
   | EApp Exp Exp -- <exp> <exp>
   | ELet BindGroup Exp -- let <name> = <exp> in <exp>
   deriving (Show)
+
+bgFromTuples :: [(Name, Maybe Scheme, [Alt])] -> BindGroup
+bgFromTuples g =
+  BindGroup [Expl v t alts | (v, Just t, alts) <- g] $
+    filter (not . null) [[Impl v alts | (v, Nothing, alts) <- g]]

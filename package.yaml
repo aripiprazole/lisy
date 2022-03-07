@@ -20,6 +20,8 @@ description: Please see the README on GitHub at <https://github.com/gabrielleeg1
 
 dependencies:
   - base >= 4.7 && < 5
+  - megaparsec >= 9.0.1
+  - text >= 1.2.4.1
 
 library:
   source-dirs: src

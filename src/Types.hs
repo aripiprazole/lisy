@@ -94,7 +94,8 @@ instance Show TyCon where
 
 instance Show Typ where
   show (TGen i) = "v" ++ show i
-  show (TApp (TApp a b) c) | a == tArrow = concat [show b, " -> ", show c]
+  show (TApp (TApp (TCon (TyCon (Id n) _)) b) c)
+    | n == "->" = concat [show b, " -> ", show c]
   show (TApp a b@(TApp _ _)) = concat [show a, " (", show b, ")"]
   show (TApp a b) = concat [show a, " ", show b]
   show (TCon (TyCon name _)) = show name
@@ -164,7 +165,7 @@ tList :: Typ
 tList = TCon (TyCon (Id "List") (KStar -:>> KStar))
 
 tArrow :: Typ
-tArrow = TCon (TyCon (Id "(->)") (KStar -:>> KStar -:>> KStar))
+tArrow = TCon (TyCon (Id "->") (KStar -:>> KStar -:>> KStar))
 
 tTuple2 :: Typ
 tTuple2 = TCon (TyCon (Id "(,)") (KStar -:>> KStar -:>> KStar))

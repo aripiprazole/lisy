@@ -1,22 +1,29 @@
+{-# LANGUAGE OverloadedStrings #-}
+
 module Lib
   ( someFunc,
     sample,
     std,
-    toBg,
   )
 where
 
 import Adhoc (ClassEnv (ClassEnv), Pred (IsIn), Qual ((:=>)), addInst, addPreludeClasses, initialEnv, (<:>))
 import Assump (Assump ((:>:)))
-import Ast (Alt (Alt), BindGroup (BindGroup), Exp (EApp, ELit, EVar), Expl (Expl), Impl (Impl), Lit (LString, LUnit), Pat (PVar))
+import Ast (Alt (Alt), BindGroup (BindGroup), Decl, Exp (EApp, ELit, EVar), Expl (Expl), Impl (Impl), Lit (LString, LUnit), Pat (PVar), Program (Program))
 import Data.Maybe (fromJust)
+import Data.Text (Text, intercalate, pack)
 import Entailment (entail)
 import Infer (tiExp, tiProgram)
 import Name (Name (Id))
+import Parser (Parser, pAlt, pBindGroup, pExp, pTyp, parseLisy)
 import Reduction (simplify)
 import Scheme (Scheme (Forall), toScheme)
 import TI (Instantiate (inst), getSubst, runTI)
+import Text.Megaparsec (runParser)
+import Text.Megaparsec.Debug (dbg)
+import Text.Megaparsec.Error (errorBundlePretty)
 import Types (Kind (KFun, KStar), TyVar (TyVar), Typ (TGen, TVar), Types (apply), list, tInt, tString, tUnit, (->>))
+import Unify (mgu)
 
 atyp = TVar (TyVar (Id "a") KStar)
 
@@ -26,31 +33,28 @@ std =
     Id "show" :>: Forall [] ([IsIn atyp (Id "Show")] :=> (atyp ->> tString))
   ]
 
-sample :: (Name, Maybe Scheme, [Alt])
+parseLisyIO :: Parser a -> Text -> IO a
+parseLisyIO p s = case runParser p "stub" s of
+  Left err -> error $ errorBundlePretty err
+  Right x -> return x
+
+sample :: Text
 sample =
-  ( Id "main",
-    Just $ Forall [] ([] :=> (list tString ->> tString)),
-    [Alt [PVar $ Id "args"] $ EApp (EVar (Id "show")) (ELit LUnit)]
-  )
+  intercalate
+    ";"
+    [ "main : (Maybe Int) -> ()\n",
+      "main (Just i) = println (show 1)"
+    ]
 
-toBg :: [(Name, Maybe Scheme, [Alt])] -> BindGroup
-toBg g =
-  BindGroup [Expl v t alts | (v, Just t, alts) <- g] $
-    filter (not . null) [[Impl v alts | (v, Nothing, alts) <- g]]
-
-env = [Id "args" :>: Forall [] ([] :=> list tString)]
-
+-- | Program entrypoint
+-- TODO: split ast to Resolved, Typed and Base (directly from parsing).
+-- TODO: do static analysis for dependency analisys,
+-- and make kinds the real values.
 someFunc :: IO ()
 someFunc = do
-  ce' <- addPreludeClasses initialEnv
-  ce <- addInst [] (IsIn (list tString) (Id "Show")) ce'
+  ce <-
+    addPreludeClasses initialEnv
+      >>= addInst [] (IsIn (list tString) (Id "Show"))
 
-  print $ tiProgram ce std [toBg [sample]]
-  let (ps, t) = runTI $ do
-        (qs, t) <- tiExp ce (std ++ env) (EApp (EVar $ Id "show") (EVar $ Id "args"))
-        s <- getSubst
-
-        return (apply s qs, apply s t)
-  print (ps, t)
-  print $ entail ce [] (head ps)
+  parseLisyIO pBindGroup sample >>= print
   return ()
