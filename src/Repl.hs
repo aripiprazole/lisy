@@ -1,12 +1,11 @@
 {-# LANGUAGE OverloadedStrings #-}
-{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
-module Repl (loop, initialState) where
+module Repl (replState, loop) where
 
-import Adhoc (ClassEnv, initialEnv)
-import Analysis (AnalyzerState)
+import Adhoc (ClassEnv, Qual ((:=>)), initialEnv)
+import Analysis (AnalyzerState (types, variables))
 import qualified Analysis as A
-import Assump (Assump)
+import Assump (Assump, find)
 import Ast (ReplExp (REDecl, REExp))
 import Control.Arrow (left)
 import Control.Monad.IO.Class (MonadIO (liftIO))
@@ -15,8 +14,10 @@ import Control.Monad.State (MonadState (get, put), StateT (runStateT))
 import Data.Maybe (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Text as T
 import Infer (tiExp)
+import Name (Name (Id))
 import Parser (pExp, pReplExp)
 import Pretty (Pretty (pretty))
+import Scheme (Scheme (Forall))
 import System.Console.Haskeline (InputT, getInputLine)
 import TI (getSubst, runTI)
 import qualified Text.Megaparsec as MP
@@ -26,8 +27,11 @@ data ReplState = ReplState {ce :: ClassEnv, as :: [Assump], astate :: AnalyzerSt
 
 type Repl a = InputT (StateT ReplState IO) a
 
-initialState :: ReplState
-initialState = ReplState initialEnv [] A.initialState
+replState :: ClassEnv -> AnalyzerState -> ReplState
+replState ce as = ReplState ce (A.asFromState ce as) as
+
+classEnv :: ClassEnv
+classEnv = initialEnv
 
 evalRepl :: ReplState -> T.Text -> Either String (ReplState, String)
 evalRepl s@(ReplState ce as astate) txt = do
@@ -60,6 +64,15 @@ loop = do
     go :: [T.Text] -> Repl ()
     go [":quit"] = return ()
     go [":q"] = return ()
+    go [":type", n] = do
+      st <- lift get
+      sc <- find (Id (T.unpack n)) $ as st
+      liftIO $ putStrLn $ T.unpack n ++ " : " ++ show sc
+      loop
+    go [":as"] = do
+      st <- lift get
+      liftIO $ print $ as st
+      loop
     go exp = do
       st <- lift get
       case evalRepl st $ T.unwords exp of

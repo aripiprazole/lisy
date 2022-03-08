@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Analysis (Resolve, AnalyzerState (..), RError (..), resolveExp, resolveDecl, initialState, asFromState) where
+module Analysis (Resolve, AnalyzerState (..), RError (..), Var (..), resolveExp, resolveDecl, initialState, asFromState) where
 
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Assump (Assump ((:>:)))
