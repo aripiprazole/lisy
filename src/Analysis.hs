@@ -1,8 +1,8 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Analysis (Resolve, AnalyzerState (..), RError (..), resolveExp, resolveDecl, initialState) where
+module Analysis (Resolve, AnalyzerState (..), RError (..), resolveExp, resolveDecl, initialState, asFromState) where
 
-import Adhoc (Pred (IsIn), Qual ((:=>)))
+import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Assump (Assump ((:>:)))
 import Ast (Alt (Alt), Decl (DImpl, DVal), Exp (EApp, ELet, ELit, EVar), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program (Program))
 import Control.Monad (void)
@@ -12,14 +12,16 @@ import Control.Monad.State (MonadState (get, put), StateT)
 import Control.Monad.State.Class (gets)
 import Data.List (delete)
 import Data.Maybe (mapMaybe)
+import Infer (tiImpls)
 import Name (Name (Id))
-import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
+import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RImpl (RImpl), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
 import Scheme (Scheme (Forall))
+import TI (runTI)
 import Types (Kind, TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar))
 
 data Var = Var
   { name :: Name,
-    alts :: [Alt],
+    alts :: [RAlt],
     scheme :: Maybe Scheme
   }
   deriving (Eq)
@@ -34,17 +36,21 @@ data RError = UnresolvedVar Name | UnresolvedType Name
 
 type Resolve a = StateT AnalyzerState (Either RError) a
 
-asFromState :: AnalyzerState -> [Assump]
-asFromState (AnalyzerState vars _ _) = mapMaybe mapVar vars
+asFromState :: ClassEnv -> AnalyzerState -> [Assump]
+asFromState ce (AnalyzerState [] _ _) = []
+asFromState ce (AnalyzerState vars _ _) = foldl go [] vars
   where
-    mapVar :: Var -> Maybe Assump
-    mapVar (Var n _ (Just sc)) = Just $ n :>: sc
-    mapVar (Var _ _ Nothing) = Nothing
+    go :: [Assump] -> Var -> [Assump]
+    go as (Var n _ (Just sc)) = n :>: sc : as
+    go as (Var n as' Nothing) =
+      snd $
+        runTI $
+          tiImpls ce as [RImpl n as']
 
 initialState :: AnalyzerState
 initialState = AnalyzerState [] [] Nothing
 
-setImpl :: Name -> Alt -> Resolve ()
+setImpl :: Name -> RAlt -> Resolve ()
 setImpl n a = do
   st <- get
   s <- lookupSymbol n
@@ -115,10 +121,9 @@ resolveTyp t = return t
 
 resolveDecl :: Decl -> Resolve ()
 resolveDecl (DImpl n a) = do
-  setImpl n a
-  forkState $ do
-    a' <- resolveAlt a
-    return ()
+  a' <- forkState $ resolveAlt a
+  setImpl n a'
+  return ()
 resolveDecl (DVal n sc) = setSymbol (Just sc) n
 
 resolveAlt :: Alt -> Resolve RAlt

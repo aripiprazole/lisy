@@ -36,13 +36,20 @@ evalRepl s@(ReplState ce as astate) txt = do
   case re of
     REExp exp -> do
       (rexp, astate') <- pretty "" `left` runStateT (A.resolveExp exp) astate
-      let ty = runTI $ do (_, t) <- tiExp ce as rexp; s <- getSubst; return $ apply s t
+      let as' = A.asFromState ce astate'
+          as'' = as' ++ as
+          (ps, t) = runTI $ do e <- tiExp ce as'' rexp; s <- getSubst; return $ apply s e
+          res = case ps of
+            [] -> concat [T.unpack txt, " : ", show t]
+            _ -> concat [T.unpack txt, " : (", unwords $ map show ps, ") => ", show t]
 
-      return (s {astate = astate'}, concat [T.unpack txt, " : ", show ty])
+      return (s {astate = astate', as = as''}, res)
     REDecl decl -> do
       (rdecl, astate') <- pretty "" `left` runStateT (A.resolveDecl decl) astate
 
-      return (s {astate = astate'}, show rdecl)
+      let as' = A.asFromState ce astate'
+
+      return (s {astate = astate', as = as' ++ as}, show rdecl)
 
 loop :: Repl ()
 loop = do

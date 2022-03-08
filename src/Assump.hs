@@ -6,7 +6,7 @@ import Scheme (Scheme)
 import Types (Types (apply, ftv))
 
 -- | Assumption about a type variable.
-data Assump = Name :>: Scheme
+data Assump = Name :>: Scheme deriving (Eq)
 
 instance Show Assump where
   show (n :>: s) = show n ++ " : " ++ show s

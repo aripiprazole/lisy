@@ -23,7 +23,7 @@ data RPat
   | RPLit Lit
   | RPNpk Name Int
   | RPCon Assump [RPat]
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | Specifies a function definition: <name> [<pat>] = <exp>.
 data RExpl = RExpl
@@ -31,7 +31,7 @@ data RExpl = RExpl
     eScheme :: Scheme,
     eAlts :: [RAlt]
   }
-  deriving (Show)
+  deriving (Show, Eq)
 
 data RExp
   = RELit Lit
@@ -39,16 +39,16 @@ data RExp
   | REConst Assump
   | REApp RExp RExp
   | RELet RBindGroup RExp
-  deriving (Show)
+  deriving (Show, Eq)
 
 -- | Specifies the left and right sides of a function definition.
-data RAlt = RAlt {pats :: [RPat], exp :: RExp} deriving (Show)
+data RAlt = RAlt {pats :: [RPat], exp :: RExp} deriving (Show, Eq)
 
-data RImpl = RImpl {iName :: Name, iAlts :: [RAlt]} deriving (Show)
+data RImpl = RImpl {iName :: Name, iAlts :: [RAlt]} deriving (Show, Eq)
 
-data RBindGroup = RBindGroup {expls :: [RExpl], impls :: [[RImpl]]} deriving (Show)
+data RBindGroup = RBindGroup {expls :: [RExpl], impls :: [[RImpl]]} deriving (Show, Eq)
 
-newtype RProgram = RProgram [RBindGroup] deriving (Show)
+newtype RProgram = RProgram [RBindGroup] deriving (Show, Eq)
 
 bgFromTuples :: [(Name, Maybe Scheme, [RAlt])] -> RBindGroup
 bgFromTuples g =

@@ -131,6 +131,11 @@ class Types a where
   -- | Returns a set of free variables of `a`
   ftv :: a -> [TyVar]
 
+instance (Types a, Types b) => Types (a, b) where
+  apply s (a, b) = (apply s a, apply s b)
+
+  ftv (a, b) = ftv a `union` ftv b
+
 instance Types a => Types [a] where
   apply s = map (apply s)
   ftv = nub . concatMap ftv
