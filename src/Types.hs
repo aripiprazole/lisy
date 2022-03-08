@@ -99,8 +99,9 @@ letters = [1 ..] >>= flip replicateM ['a' .. 'z']
 
 instance Show Typ where
   show (TGen i) = "'" ++ letters !! i
-  show (TApp (TApp (TCon (TyCon (Id n) _)) b) c)
-    | n == "->" = concat [show b, " -> ", show c]
+  show (TApp (TApp (TCon (TyCon (Id "->") _)) b@(TApp _ _)) c) = concat ["(", show b, ") -> ", show c]
+  show (TApp (TApp (TCon (TyCon (Id "->") _)) b) c) = concat [show b, " -> ", show c]
+  show (TApp (TCon (TyCon (Id "List") _)) b) = concat ["[", show b, "]"]
   show (TApp a b@(TApp _ _)) = concat [show a, " (", show b, ")"]
   show (TApp a b) = concat [show a, " ", show b]
   show (TCon (TyCon name _)) = show name
