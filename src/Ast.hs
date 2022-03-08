@@ -28,7 +28,7 @@ data Pat
   | PLit Lit -- <lit>
   | PNpk Name Int -- <n> + <k>
   | PCon Name [Pat] -- <name> [<pat>]
-  deriving (Show)
+  deriving (Show, Eq)
 
 data ReplExp = REExp Exp | REDecl Decl deriving (Show)
 
@@ -38,7 +38,7 @@ data Decl
   deriving (Show)
 
 -- | Specifies the left and right sides of a function definition.
-data Alt = Alt {pats :: [Pat], exp :: Exp} deriving (Show)
+data Alt = Alt {pats :: [Pat], exp :: Exp} deriving (Show, Eq)
 
 newtype Program = Program {decls :: [Decl]} deriving (Show)
 
@@ -47,4 +47,4 @@ data Exp
   | EVar Name -- <name>
   | EApp Exp Exp -- <exp> <exp>
   | ELet [(Name, Alt)] Exp -- let <name> = <exp> in <exp>
-  deriving (Show)
+  deriving (Show, Eq)

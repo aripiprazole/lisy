@@ -10,16 +10,23 @@ import Control.Monad.Except (Except, MonadError (throwError))
 import Control.Monad.Reader (MonadReader (ask), ReaderT, asks)
 import Control.Monad.State (MonadState (get, put), StateT)
 import Control.Monad.State.Class (gets)
+import Data.List (delete)
 import Data.Maybe (mapMaybe)
 import Name (Name (Id))
 import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
 import Scheme (Scheme (Forall))
 import Types (Kind, TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar))
 
+data Var = Var
+  { name :: Name,
+    alts :: [Alt],
+    scheme :: Maybe Scheme
+  }
+  deriving (Eq)
+
 data AnalyzerState = AnalyzerState
-  { variables :: [(Name, Maybe Scheme)],
+  { variables :: [Var],
     types :: [(Name, Kind)],
-    impls :: [(Name, Alt)],
     enclosing :: Maybe AnalyzerState
   }
 
@@ -28,25 +35,29 @@ data RError = UnresolvedVar Name | UnresolvedType Name
 type Resolve a = StateT AnalyzerState (Either RError) a
 
 asFromState :: AnalyzerState -> [Assump]
-asFromState (AnalyzerState vars _ _ _) = mapMaybe mapVar vars
+asFromState (AnalyzerState vars _ _) = mapMaybe mapVar vars
   where
-    mapVar :: (Name, Maybe Scheme) -> Maybe Assump
-    mapVar (n, Just sc) = Just $ n :>: sc
-    mapVar (_, Nothing) = Nothing
+    mapVar :: Var -> Maybe Assump
+    mapVar (Var n _ (Just sc)) = Just $ n :>: sc
+    mapVar (Var _ _ Nothing) = Nothing
 
 initialState :: AnalyzerState
-initialState = AnalyzerState [] [] [] Nothing
+initialState = AnalyzerState [] [] Nothing
 
 setImpl :: Name -> Alt -> Resolve ()
 setImpl n a = do
-  s <- get
-  put s {impls = (n, a) : impls s}
+  st <- get
+  s <- lookupSymbol n
+  case s of
+    Just s' -> put st {variables = s' {alts = a : alts s'} : delete s' (variables st)}
+    Nothing -> setSymbol Nothing n
+
   return ()
 
 setSymbol :: Maybe Scheme -> Name -> Resolve ()
 setSymbol sc n = do
-  s <- get
-  put s {variables = (n, sc) : variables s}
+  st <- get
+  put st {variables = Var n [] sc : variables st}
   return ()
 
 forkState :: Resolve a -> Resolve a
@@ -66,13 +77,13 @@ lookupType n = do v <- gets types; go v
       | n == n' = return $ Just (n', k)
       | otherwise = go xs
 
-lookupSymbol :: Name -> Resolve (Maybe (Name, Maybe Scheme))
+lookupSymbol :: Name -> Resolve (Maybe Var)
 lookupSymbol n = do v <- gets variables; go v
   where
-    go :: [(Name, Maybe Scheme)] -> Resolve (Maybe (Name, Maybe Scheme))
+    go :: [Var] -> Resolve (Maybe Var)
     go [] = return Nothing
-    go ((n', sc) : xs)
-      | n == n' = return $ Just (n', sc)
+    go (v@(Var n' _ sc) : xs)
+      | n == n' = return $ Just v
       | otherwise = go xs
 
 resolveProgram :: Program -> Resolve RProgram
@@ -128,7 +139,7 @@ resolvePat (PVar n) = do
   setSymbol Nothing n
   return $ RPVar n
 resolvePat (PCon n ps) = do
-  sc <- fmap snd <$> lookupSymbol n
+  sc <- fmap scheme <$> lookupSymbol n
   ps' <- sequence $ resolvePat <$> ps
 
   case sc of
@@ -141,7 +152,7 @@ resolveExp (ELit lit) = return $ RELit lit
 resolveExp (EVar v) = do
   v' <- lookupSymbol v
   case v' of
-    Just (n, Just sc) -> return $ REConst (n :>: sc)
+    Just (Var n _ (Just sc)) -> return $ REConst (n :>: sc)
     Nothing -> throwError $ UnresolvedVar v
     _ -> return $ REVar v
 resolveExp (EApp l r) = do
