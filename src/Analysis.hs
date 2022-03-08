@@ -1,6 +1,6 @@
 {-# LANGUAGE LambdaCase #-}
 
-module Analysis (Resolve, AnalyzerState (..), resolveExp, resolveDecl, initialState, prettyRError) where
+module Analysis (Resolve, AnalyzerState (..), RError (..), resolveExp, resolveDecl, initialState) where
 
 import Adhoc (Pred (IsIn), Qual ((:=>)))
 import Assump (Assump ((:>:)))
@@ -33,10 +33,6 @@ asFromState (AnalyzerState vars _ _ _) = mapMaybe mapVar vars
     mapVar :: (Name, Maybe Scheme) -> Maybe Assump
     mapVar (n, Just sc) = Just $ n :>: sc
     mapVar (_, Nothing) = Nothing
-
-prettyRError :: RError -> String
-prettyRError (UnresolvedVar n) = "Unresolved variable: " ++ show n
-prettyRError (UnresolvedType n) = "Unresolved type: " ++ show n
 
 initialState :: AnalyzerState
 initialState = AnalyzerState [] [] [] Nothing

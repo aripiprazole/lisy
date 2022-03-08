@@ -16,6 +16,7 @@ import Data.Maybe (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Text as T
 import Infer (tiExp)
 import Parser (pExp, pReplExp)
+import Pretty (Pretty (pretty))
 import System.Console.Haskeline (InputT, getInputLine)
 import TI (getSubst, runTI)
 import qualified Text.Megaparsec as MP
@@ -30,18 +31,16 @@ initialState = ReplState initialEnv [] A.initialState
 
 evalRepl :: ReplState -> T.Text -> Either String (ReplState, String)
 evalRepl s@(ReplState ce as astate) txt = do
-  exp <- MP.errorBundlePretty `left` MP.runParser pReplExp "Repl" txt
+  re <- MP.errorBundlePretty `left` MP.runParser pReplExp "Repl" txt
 
-  evalExp exp
-  where
-    evalExp :: ReplExp -> Either String (ReplState, String)
-    evalExp (REExp exp) = do
-      (rexp, astate') <- A.prettyRError `left` runStateT (A.resolveExp exp) astate
+  case re of
+    REExp exp -> do
+      (rexp, astate') <- pretty "" `left` runStateT (A.resolveExp exp) astate
       let ty = runTI $ do (_, t) <- tiExp ce as rexp; s <- getSubst; return $ apply s t
 
       return (s {astate = astate'}, concat [T.unpack txt, " : ", show ty])
-    evalExp (REDecl decl) = do
-      (rdecl, astate') <- A.prettyRError `left` runStateT (A.resolveDecl decl) astate
+    REDecl decl -> do
+      (rdecl, astate') <- pretty "" `left` runStateT (A.resolveDecl decl) astate
 
       return (s {astate = astate'}, show rdecl)
 
