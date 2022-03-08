@@ -46,7 +46,7 @@ evalRepl s@(ReplState ce as astate) txt = do
           (s', (ps, t)) = runTI $ do e <- tiExp ce as'' rexp; s <- getSubst; return (s, apply s e)
           res = case ps of
             [] -> concat [T.unpack txt, " : ", show $ apply s' t]
-            _ -> concat [T.unpack txt, " : (", unwords $ map show $ apply s' ps, ") => ", show $ apply s' t]
+            _ -> concat [T.unpack txt, " : ", show $ apply s' ps :=> apply s' t]
 
       return (s {astate = astate', as = as''}, res)
     REDecl decl -> do

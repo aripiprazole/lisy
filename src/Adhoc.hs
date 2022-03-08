@@ -20,10 +20,10 @@ module Adhoc
   )
 where
 
-import Data.List (union)
+import Data.List (intercalate, union)
 import Data.Maybe (isJust, isNothing)
 import Name (Name (Id))
-import Types (Subst, Typ, Types (apply, ftv), tDouble, tInt)
+import Types (Subst, Typ (TApp), Types (apply, ftv), tDouble, tInt)
 import Unify (match, mgu)
 
 -- | Types can be quantified by adding a list of predicates, to restrict
@@ -47,11 +47,13 @@ data Class = Class [Name] [Inst]
 type Inst = Qual Pred
 
 instance Show Pred where
+  show (IsIn t@(TApp _ _) n) = concat [show n, " (", show t, ")"]
   show (IsIn t n) = concat [show n, " ", show t]
 
 instance Show a => Show (Qual a) where
   show ([] :=> t) = show t
-  show (ps :=> t) = unwords (map show ps) ++ " => " ++ show t
+  show ([p] :=> t) = concat [show p, " => ", show t]
+  show (ps :=> t) = concat ["(", intercalate ", " $ map show ps, ") => ", show t]
 
 instance Types a => Types (Qual a) where
   apply s (ps :=> t) = apply s ps :=> apply s t
