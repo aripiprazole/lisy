@@ -13,6 +13,7 @@ import Control.Monad.Reader (MonadTrans (lift), ReaderT (runReaderT))
 import Control.Monad.State (MonadState (get, put), StateT (runStateT))
 import Data.Maybe (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Text as T
+import Debug.Trace (traceM)
 import Infer (tiExp)
 import Name (Name (Id))
 import Parser (pExp, pReplExp)
@@ -42,10 +43,10 @@ evalRepl s@(ReplState ce as astate) txt = do
       (rexp, astate') <- pretty "" `left` runStateT (A.resolveExp exp) astate
       let as' = A.asFromState ce astate'
           as'' = as' ++ as
-          (ps, t) = runTI $ do e <- tiExp ce as'' rexp; s <- getSubst; return $ apply s e
+          (s', (ps, t)) = runTI $ do e <- tiExp ce as'' rexp; s <- getSubst; return (s, apply s e)
           res = case ps of
-            [] -> concat [T.unpack txt, " : ", show t]
-            _ -> concat [T.unpack txt, " : (", unwords $ map show ps, ") => ", show t]
+            [] -> concat [T.unpack txt, " : ", show $ apply s' t]
+            _ -> concat [T.unpack txt, " : (", unwords $ map show $ apply s' ps, ") => ", show $ apply s' t]
 
       return (s {astate = astate', as = as''}, res)
     REDecl decl -> do
