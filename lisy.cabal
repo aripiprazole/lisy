@@ -26,6 +26,7 @@ library
   exposed-modules:
       Adhoc
       Ambiguity
+      Analysis
       Assump
       Ast
       Entailment

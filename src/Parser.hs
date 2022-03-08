@@ -3,12 +3,11 @@
 module Parser (module Parser) where
 
 import Adhoc (Qual ((:=>)))
-import Assump (Assump ((:>:)))
-import Ast (Alt (Alt), BindGroup (BindGroup), Exp (EApp, ELet, ELit, EVar), Expl (Expl), Lit (LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PVar, PWildcard), Program (Program))
+import Ast (Alt (Alt), Decl (DImpl, DVal), Exp (EApp, ELet, ELit, EVar), Lit (LInt, LRat, LString, LUnit), Pat (PAs, PCon, PLit, PVar, PWildcard), Program (Program), ReplExp (REDecl, REExp))
 import Control.Monad (void)
 import Data.Functor (($>), (<&>))
 import Data.Maybe (fromMaybe)
-import Data.Text (Text, pack, uncons)
+import Data.Text (Text, pack)
 import Data.Void (Void)
 import Name (Name (Id))
 import Scheme (Scheme (Forall))
@@ -20,17 +19,17 @@ import Types (Kind (KStar), TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar)
 
 type Parser = Parsec Void Text
 
+keywords :: [Text]
+keywords = ["let", "in", "class", "instance"]
+
 parseLisy :: Text -> Either (ParseErrorBundle Text Void) Program
 parseLisy = runParser program "stub"
 
 program :: Parser Program
-program = many pBindGroup <&> Program
+program = many pDecl <&> Program
 
 pName :: Parser Name
 pName = (pSymbolName <|> pAsciiName) <?> "id"
-
-keywords :: [Text]
-keywords = ["let", "in", "class", "instance"]
 
 pSymbolName :: Parser Name
 pSymbolName = do
@@ -61,21 +60,31 @@ pScheme = label "type scheme" $ do
   t <- pTyp
   return $ Forall [] ([] :=> t)
 
-pBindGroup :: Parser BindGroup
-pBindGroup = do
-  (n, sc) <- lined $ do
-    n <- pName
-    keyword ":"
-    sc <- pScheme
-    return (n, sc)
+pReplExp :: Parser ReplExp
+pReplExp = choice [pDecl', pExp'] <?> "repl expression"
+  where
+    pDecl' :: Parser ReplExp
+    pDecl' = pDecl <&> REDecl
 
-  alts <- (many . lined) $ do
-    an <- pName
-    if n == an
-      then pAlt
-      else fail "the alternatives for a function must be below the definition"
+    pExp' :: Parser ReplExp
+    pExp' = pExp <&> REExp
 
-  return $ BindGroup [Expl n alts]
+pDecl :: Parser Decl
+pDecl = choice [pImpl, pVal] <?> "declaration"
+  where
+    pVal :: Parser Decl
+    pVal = (label "val declaration" . try) $ do
+      n <- lexeme pName
+      keyword ":"
+      sc <- lexeme pScheme
+      return $ DVal n sc
+
+    pImpl :: Parser Decl
+    pImpl = (label "impl declaration" . try) $ do
+      n <- lexeme pName
+      alt <- lexeme pAlt
+
+      return $ DImpl n alt
 
 pPat :: Parser Pat
 pPat = choice [pCon, pPLit, pAs, pVar, pGroup, pWildcard] <?> "pattern"
@@ -100,7 +109,7 @@ pPat = choice [pCon, pPLit, pAs, pVar, pGroup, pWildcard] <?> "pattern"
       n <- pName
       ps <- many pPat
 
-      return $ PCon (n :>: Forall [] ([] :=> tUnit)) ps
+      return $ PCon n ps
 
 pAlt :: Parser Alt
 pAlt = label "alternative" $ do
@@ -120,7 +129,7 @@ pExp = choice [pLet, pApp] <?> "expression"
       e <- pExp
       keyword "in"
 
-      ELet (BindGroup [Expl n [Alt [] e]]) <$> pExp
+      ELet [(n, Alt [] e)] <$> pExp
 
     pApp :: Parser Exp
     pApp = lexeme $ do

@@ -1,29 +1,49 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
 
 module Repl (loop, initialState) where
 
+import Adhoc (ClassEnv, initialEnv)
+import Analysis (AnalyzerState)
+import qualified Analysis as A
+import Assump (Assump)
+import Ast (ReplExp (REDecl, REExp))
 import Control.Arrow (left)
 import Control.Monad.IO.Class (MonadIO (liftIO))
-import Control.Monad.State (StateT)
+import Control.Monad.Reader (MonadTrans (lift), ReaderT (runReaderT))
+import Control.Monad.State (MonadState (get, put), StateT (runStateT))
 import Data.Maybe (fromJust, fromMaybe, mapMaybe)
 import qualified Data.Text as T
-import Parser (pExp)
+import Infer (tiExp)
+import Parser (pExp, pReplExp)
 import System.Console.Haskeline (InputT, getInputLine)
-import Text.Megaparsec (errorBundlePretty, runParser)
+import TI (getSubst, runTI)
+import qualified Text.Megaparsec as MP
+import Types (Types (apply))
 
-data ReplState = ReplState
+data ReplState = ReplState {ce :: ClassEnv, as :: [Assump], astate :: AnalyzerState}
 
 type Repl a = InputT (StateT ReplState IO) a
 
 initialState :: ReplState
-initialState = ReplState
+initialState = ReplState initialEnv [] A.initialState
 
--- TODO: type check and eval
-evalRepl :: T.Text -> Either String String
-evalRepl txt = do
-  exp <- errorBundlePretty `left` runParser pExp "Repl" txt
+evalRepl :: ReplState -> T.Text -> Either String (ReplState, String)
+evalRepl s@(ReplState ce as astate) txt = do
+  exp <- MP.errorBundlePretty `left` MP.runParser pReplExp "Repl" txt
 
-  return $ show exp
+  evalExp exp
+  where
+    evalExp :: ReplExp -> Either String (ReplState, String)
+    evalExp (REExp exp) = do
+      (rexp, astate') <- A.prettyRError `left` runStateT (A.resolveExp exp) astate
+      let ty = runTI $ do (_, t) <- tiExp ce as rexp; s <- getSubst; return $ apply s t
+
+      return (s {astate = astate'}, concat [T.unpack txt, " : ", show ty])
+    evalExp (REDecl decl) = do
+      (rdecl, astate') <- A.prettyRError `left` runStateT (A.resolveDecl decl) astate
+
+      return (s {astate = astate'}, show rdecl)
 
 loop :: Repl ()
 loop = do
@@ -35,7 +55,10 @@ loop = do
     go [":quit"] = return ()
     go [":q"] = return ()
     go exp = do
-      case evalRepl $ T.unwords exp of
+      st <- lift get
+      case evalRepl st $ T.unwords exp of
         Left err -> liftIO $ putStrLn err
-        Right val -> liftIO $ putStrLn val
+        Right (st', val) -> do
+          lift $ put st'
+          liftIO $ putStrLn val
       loop

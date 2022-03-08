@@ -2,8 +2,8 @@ module Ast
   ( Lit (..),
     Exp (..),
     Pat (..),
-    BindGroup (..),
-    Expl (..),
+    Decl (..),
+    ReplExp (..),
     Alt (..),
     Program (..),
   )
@@ -27,26 +27,24 @@ data Pat
   | PAs Name Pat -- <name>@<pat>
   | PLit Lit -- <lit>
   | PNpk Name Int -- <n> + <k>
-  | PCon Assump [Pat] -- <name> [<pat>]
+  | PCon Name [Pat] -- <name> [<pat>]
   deriving (Show)
 
-newtype BindGroup = BindGroup {expls :: [Expl]} deriving (Show)
+data ReplExp = REExp Exp | REDecl Decl deriving (Show)
 
--- | Specifies a function definition: <name> [<pat>] = <exp>.
-data Expl = Expl
-  { eName :: Name,
-    eAlts :: [Alt]
-  }
+data Decl
+  = DImpl Name Alt
+  | DVal Name Scheme
   deriving (Show)
 
 -- | Specifies the left and right sides of a function definition.
 data Alt = Alt {pats :: [Pat], exp :: Exp} deriving (Show)
 
-newtype Program = Program [BindGroup] deriving (Show)
+newtype Program = Program {decls :: [Decl]} deriving (Show)
 
 data Exp
   = ELit Lit -- <lit>
   | EVar Name -- <name>
   | EApp Exp Exp -- <exp> <exp>
-  | ELet BindGroup Exp -- let <name> = <exp> in <exp>
+  | ELet [(Name, Alt)] Exp -- let <name> = <exp> in <exp>
   deriving (Show)
