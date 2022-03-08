@@ -24,9 +24,11 @@ module Types
     (-:>>),
     (->>),
     enumId,
+    letters,
   )
 where
 
+import Control.Monad (replicateM)
 import Data.List (intersect, nub, union)
 import Name (Name (..))
 
@@ -92,8 +94,11 @@ instance Show TyVar where
 instance Show TyCon where
   show (TyCon n k) = concat [show n, " : ", show k]
 
+letters :: [String]
+letters = [1 ..] >>= flip replicateM ['a' .. 'z']
+
 instance Show Typ where
-  show (TGen i) = "v" ++ show i
+  show (TGen i) = letters !! i
   show (TApp (TApp (TCon (TyCon (Id n) _)) b) c)
     | n == "->" = concat [show b, " -> ", show c]
   show (TApp a b@(TApp _ _)) = concat [show a, " (", show b, ")"]
