@@ -5,26 +5,26 @@ module Analysis (Resolve, AnalyzerState (..), RError (..), Var (..), resolveExp,
 import Adhoc (ClassEnv, Pred (IsIn), Qual ((:=>)))
 import Assump (Assump ((:>:)))
 import Ast (Alt (Alt), Decl (DImpl, DVal), Exp (EApp, ELet, ELit, EVar), Pat (PAs, PCon, PLit, PNpk, PVar, PWildcard), Program (Program))
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Control.Monad.Except (Except, MonadError (throwError))
 import Control.Monad.Reader (MonadReader (ask), ReaderT, asks)
 import Control.Monad.State (MonadState (get, put), StateT)
 import Control.Monad.State.Class (gets)
 import Data.List (delete, union)
-import Data.Maybe (mapMaybe)
-import Infer (tiImpls)
+import Data.Maybe (fromJust, isNothing, mapMaybe)
+import Infer (tiBindGroup, tiImpls)
 import Name (Name (Id))
 import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RImpl (RImpl), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
 import Scheme (Scheme (Forall), quantify)
-import TI (runTI)
-import Types (Kind, TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar))
+import TI (getSubst, runTI)
+import Types (Kind, TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar), Types (apply))
 
 data Var = Var
   { name :: Name,
     alts :: [RAlt],
     scheme :: Maybe Scheme
   }
-  deriving (Eq)
+  deriving (Show, Eq)
 
 data AnalyzerState = AnalyzerState
   { variables :: [Var],
@@ -42,10 +42,13 @@ asFromState ce (AnalyzerState vars _ _) = foldl go [] vars
   where
     go :: [Assump] -> Var -> [Assump]
     go as (Var n _ (Just sc)) = n :>: sc : as
-    go as (Var n as' Nothing) =
-      snd $
-        runTI $
-          tiImpls ce as [RImpl n as']
+    go as (Var n alts Nothing) = as' ++ as
+      where
+        as' :: [Assump]
+        as' = (snd . runTI) $ do
+          a <- tiImpls ce as [RImpl n alts]
+          s <- getSubst
+          return $ apply s a
 
 initialState :: AnalyzerState
 initialState = AnalyzerState [] [] Nothing
@@ -54,9 +57,11 @@ setImpl :: Name -> RAlt -> Resolve ()
 setImpl n a = do
   st <- get
   s <- lookupSymbol n
-  case s of
-    Just s' -> put st {variables = s' {alts = a : alts s'} : delete s' (variables st)}
-    Nothing -> setSymbol Nothing n
+
+  when (isNothing s) $ setSymbol Nothing n
+
+  s' <- fromJust <$> lookupSymbol n
+  put st {variables = s' {alts = a : alts s'} : delete s' (variables st)}
 
   return ()
 
