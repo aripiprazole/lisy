@@ -12,6 +12,7 @@ import Control.Monad.State (MonadState (get, put), StateT)
 import Control.Monad.State.Class (gets)
 import Data.List (delete, union)
 import Data.Maybe (fromJust, isNothing, mapMaybe)
+import Debug.Trace (traceM)
 import Infer (tiBindGroup, tiImpls)
 import Name (Name (Id))
 import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RImpl (RImpl), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
@@ -103,12 +104,12 @@ generalize = go []
     go :: [TyVar] -> Typ -> Resolve [TyVar]
     go us (TVar tv@(TyVar n _)) =
       lookupType n >>= \case
-        Just (_, k) -> return $ tv : us
-        Nothing -> return us
-    go us (TApp t1 t2) = do
+        Just _ -> return us
+        Nothing -> return $ tv : us
+    go us t@(TApp t1 t2) = do
       t1' <- go us t1
       t2' <- go us t2
-      return $ t1' `union` t2'
+      return $ t1' ++ t2'
     go us t = return us
 
 resolveProgram :: Program -> Resolve RProgram
