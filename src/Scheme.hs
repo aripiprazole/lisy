@@ -15,7 +15,7 @@ instance Show Scheme where
   show (Forall us q) = concat ["forall ", unwords us', ". ", show q]
     where
       showKind :: Int -> Kind -> String
-      showKind n k = concat ["(", letters !! n, " : ", show k, ")"]
+      showKind n k = concat ["('", letters !! n, " : ", show k, ")"]
 
       us' :: [String]
       us' = toList $ S.mapWithIndex showKind $ S.fromList us

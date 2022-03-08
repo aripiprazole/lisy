@@ -38,11 +38,11 @@ newtype Subst = Subst {substs :: [(TyVar, Typ)]}
 instance Show Subst where
   show (Subst []) = "Subst {}"
   show (Subst s) = "Subst { " ++ showSubstList s ++ " }"
-
-showSubstList :: [(TyVar, Typ)] -> String
-showSubstList [] = ""
-showSubstList [(u, t)] = concat ["(", show u, ")", ": ", show t]
-showSubstList ((u, t) : xs) = concat ["(", show u, ")", ": ", show t, ", ", showSubstList xs]
+    where
+      showSubstList :: [(TyVar, Typ)] -> String
+      showSubstList [] = ""
+      showSubstList [(u, t)] = concat ["(", show u, ")", ": ", show t]
+      showSubstList ((u, t) : xs) = concat ["(", show u, ")", ": ", show t, ", ", showSubstList xs]
 
 nullSubst :: Subst
 nullSubst = Subst []
@@ -98,7 +98,7 @@ letters :: [String]
 letters = [1 ..] >>= flip replicateM ['a' .. 'z']
 
 instance Show Typ where
-  show (TGen i) = letters !! i
+  show (TGen i) = "'" ++ letters !! i
   show (TApp (TApp (TCon (TyCon (Id n) _)) b) c)
     | n == "->" = concat [show b, " -> ", show c]
   show (TApp a b@(TApp _ _)) = concat [show a, " (", show b, ")"]
