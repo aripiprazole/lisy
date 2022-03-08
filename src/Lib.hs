@@ -16,7 +16,7 @@ def n sc = A.Var (Id n) [] (Just sc)
 
 typ :: Typ -> (Name, Kind)
 typ (TCon (TyCon n k)) = (n, k)
-typ _ = error "Typ not supported"
+typ _ = error "typ not supported"
 
 astate :: A.AnalyzerState
 astate =

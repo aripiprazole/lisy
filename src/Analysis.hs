@@ -10,12 +10,12 @@ import Control.Monad.Except (Except, MonadError (throwError))
 import Control.Monad.Reader (MonadReader (ask), ReaderT, asks)
 import Control.Monad.State (MonadState (get, put), StateT)
 import Control.Monad.State.Class (gets)
-import Data.List (delete)
+import Data.List (delete, union)
 import Data.Maybe (mapMaybe)
 import Infer (tiImpls)
 import Name (Name (Id))
 import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RImpl (RImpl), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
-import Scheme (Scheme (Forall))
+import Scheme (Scheme (Forall), quantify)
 import TI (runTI)
 import Types (Kind, TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar))
 
@@ -92,6 +92,20 @@ lookupSymbol n = do v <- gets variables; go v
       | n == n' = return $ Just v
       | otherwise = go xs
 
+generalize :: Typ -> Resolve [TyVar]
+generalize = go []
+  where
+    go :: [TyVar] -> Typ -> Resolve [TyVar]
+    go us (TVar tv@(TyVar n _)) =
+      lookupType n >>= \case
+        Just (_, k) -> return $ tv : us
+        Nothing -> return us
+    go us (TApp t1 t2) = do
+      t1' <- go us t1
+      t2' <- go us t2
+      return $ t1' `union` t2'
+    go us t = return us
+
 resolveProgram :: Program -> Resolve RProgram
 resolveProgram p = do
   error "TODO"
@@ -124,7 +138,11 @@ resolveDecl (DImpl n a) = do
   a' <- forkState $ resolveAlt a
   setImpl n a'
   return ()
-resolveDecl (DVal n sc) = setSymbol (Just sc) n
+resolveDecl (DVal n sc) = do
+  (Forall _ qt@(_ :=> t)) <- resolveScheme sc
+  us <- generalize t
+
+  setSymbol (Just $ quantify us qt) n
 
 resolveAlt :: Alt -> Resolve RAlt
 resolveAlt (Alt ps e) = do
