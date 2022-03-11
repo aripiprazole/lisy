@@ -55,7 +55,7 @@ tiImpls ce as bs = do
   if restricted bs
     then
       let gs' = gs \\ ftv rs
-          scs' = quantify gs' . ([] :=>) <$> ts'
+          scs' = quantify gs' . (rs :=>) <$> ts'
        in pure (ds ++ rs, zipWith (:>:) ns scs')
     else
       let scs' = quantify gs . (rs :=>) <$> ts'
