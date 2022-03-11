@@ -28,4 +28,5 @@ entail ce ps p = any ((p `elem`) . bySuper ce) ps || findInsts (byInst ce p)
   where
     findInsts :: Either TIError [Pred] -> Bool
     findInsts (Left _) = False
+    findInsts (Right []) = False
     findInsts (Right ps) = all (entail ce ps) ps
