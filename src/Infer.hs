@@ -5,13 +5,15 @@ import Ambiguity (defaultSubst, split)
 import Assump (Assump ((:>:)), find)
 import Ast (Lit (LInt, LRat, LString, LUnit))
 import Control.Monad (zipWithM)
+import Control.Monad.Except (MonadError (throwError), MonadTrans (lift))
 import Data.List (intersect, union, (\\))
 import Entailment (entail)
 import Name (Name (Id))
 import Reduction (reduce)
 import ResolvedAst (RAlt (RAlt, pats), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RExpl (RExpl), RImpl (RImpl, iAlts, iName), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram))
 import Scheme (Scheme, quantify, toScheme)
-import TI (TI (TI), freshInst, getSubst, newTVar, runTI, unify)
+import TI (TI, freshInst, getSubst, newTVar, runTI, unify)
+import TIError (TIError (TIError))
 import Types (Kind (KStar), Subst (Subst), Typ, Types (apply, ftv), tChar, tString, tUnit, (->>), (@@))
 
 -- | Γ;P | A ⊢ e : τ, where Γ is a class environment, P is a set of predicates,
@@ -24,13 +26,15 @@ tiProgram ::
   ClassEnv ->
   [Assump] ->
   RProgram ->
-  (Subst, Subst, [Pred], [Assump])
+  Either TIError (Subst, Subst, [Pred], [Assump])
 tiProgram ce as (RProgram pg) = runTI $ do
   (ps, as') <- tiSeq tiBindGroup ce as pg
   s <- getSubst
-  rs <- reduce ce $ apply s ps
-  s' <- defaultSubst ce [] rs
-  return (s', s, rs, apply (s' @@ s) as')
+  rs <- lift $ reduce ce $ apply s ps
+  s' <- lift $ defaultSubst ce [] rs
+  undefined
+
+-- return (s', s, rs, apply (s' @@ s) as')
 
 tiImpls :: Infer [RImpl] [Assump]
 tiImpls ce as bs = do
@@ -46,7 +50,7 @@ tiImpls ce as bs = do
       fs = ftv $ apply s as
       vss = map ftv ts'
       gs = foldr1 union vss \\ fs
-  (ds, rs) <- split ce fs (foldr1 intersect vss) ps'
+  (ds, rs) <- lift $ split ce fs (foldr1 intersect vss) ps'
   if restricted bs
     then
       let gs' = gs \\ ftv rs
@@ -67,13 +71,13 @@ tiExpl ce as (RExpl n sc alts) = do
       gs = ftv t' \\ fs
       sc' = quantify gs (qs' :=> t')
       ps' = filter (not . entail ce qs') (apply s ps)
-  (ds, rs) <- split ce fs gs ps'
+  (ds, rs) <- lift $ split ce fs gs ps'
 
   if sc /= sc'
-    then fail "signature too general"
+    then throwError $ TIError "signature too general"
     else
       if not $ null rs
-        then fail "context too weak"
+        then throwError $ TIError "context too weak"
         else return ds
 
 tiAlt :: Infer RAlt Typ
@@ -94,7 +98,7 @@ tiExp ce as (RELit l) = do
   (ps, t) <- tiLit l
   return (ps, t)
 tiExp ce as (REVar n) = do
-  sc <- find n as
+  sc <- lift $ find n as
   (ps :=> t) <- freshInst sc
   return (ps, t)
 tiExp ce as (REConst (n :>: sc)) = do

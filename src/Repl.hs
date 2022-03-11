@@ -43,12 +43,14 @@ evalRepl s@(ReplState ce as astate) txt = do
       (rexp, astate') <- pretty "" `left` runStateT (A.resolveExp exp) astate
       let as' = A.asFromState ce astate'
           as'' = as' ++ as
-          (s', (ps, t)) = runTI $ do e <- tiExp ce as'' rexp; s <- getSubst; return (s, apply s e)
-          res = case ps of
+      (s', (ps, t)) <- pretty "" `left` runTI (do e <- tiExp ce as'' rexp; s <- getSubst; return (s, apply s e))
+
+      return
+        ( s {astate = astate', as = as''},
+          case ps of
             [] -> concat [T.unpack txt, " : ", show $ apply s' t]
             _ -> concat [T.unpack txt, " : ", show $ apply s' ps :=> apply s' t]
-
-      return (s {astate = astate', as = as''}, res)
+        )
     REDecl decl -> do
       (rdecl, astate') <- pretty "" `left` runStateT (A.resolveDecl decl) astate
 
@@ -67,8 +69,11 @@ loop = do
     go [":q"] = return ()
     go [":type", n] = do
       st <- lift get
-      sc <- find (Id (T.unpack n)) $ as st
-      liftIO $ putStrLn $ T.unpack n ++ " : " ++ show sc
+
+      case find (Id (T.unpack n)) $ as st of
+        Right sc -> do liftIO $ putStrLn $ T.unpack n ++ " : " ++ show sc
+        Left _ -> return ()
+
       loop
     go [":as"] = do
       st <- lift get

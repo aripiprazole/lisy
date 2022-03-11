@@ -31,6 +31,7 @@ where
 import Control.Monad (replicateM)
 import Data.List (intersect, nub, union)
 import Name (Name (..))
+import TIError (TIError (TIError))
 
 -- | Represents type variables's mapping to types
 newtype Subst = Subst {substs :: [(TyVar, Typ)]}
@@ -66,8 +67,8 @@ nullSubst = Subst []
 -- if there are any conflicts between the type variables of the two
 -- substitutions, it fails, otherwise, returns `s1 +++ s2`.
 -- The result preserves the types' kinds.
-merge :: MonadFail m => Subst -> Subst -> m Subst
-merge s1 s2 = if agree then return $ s1 +++ s2 else fail "merge fails"
+merge :: Subst -> Subst -> Either TIError Subst
+merge s1 s2 = if agree then return $ s1 +++ s2 else Left $ TIError "merge fails"
   where
     agree :: Bool
     agree = all f (map fst (substs s1) `intersect` map fst (substs s2))

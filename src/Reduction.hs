@@ -3,6 +3,7 @@ module Reduction (inHnf, toHnf, toHnfs, simplify, reduce) where
 import Adhoc (ClassEnv, Pred (IsIn))
 import Data.Bool (bool)
 import Entailment (byInst, entail)
+import TIError (TIError (TIError))
 import Types (Typ (TApp, TCon, TVar))
 
 -- | Checks if the predicate is in the head-normal form. Class arguments
@@ -21,14 +22,13 @@ inHnf (IsIn t _) = isHnf' t
 
 -- | Predicates that do not fit in head-normal form need to be decomposed using
 -- `byInst` function.
-toHnf :: MonadFail m => ClassEnv -> Pred -> m [Pred]
+-- toHnf :: ClassEnv -> Pred -> Either TIError [Pred]
+toHnf :: ClassEnv -> Pred -> Either TIError [Pred]
 toHnf ce p
   | inHnf p = return [p]
-  | otherwise = case byInst ce p of
-    Nothing -> fail "context reduction"
-    Just ps -> toHnfs ce ps
+  | otherwise = byInst ce p >>= toHnfs ce
 
-toHnfs :: MonadFail m => ClassEnv -> [Pred] -> m [Pred]
+toHnfs :: ClassEnv -> [Pred] -> Either TIError [Pred]
 toHnfs ce ps = do
   ps' <- mapM (toHnf ce) ps
   return $ concat ps'
@@ -44,5 +44,7 @@ simplify ce = loop []
       | otherwise = loop (p : rs) ps
 
 -- | Reduces the predicates to head-normal form and simplify the list.
-reduce :: MonadFail m => ClassEnv -> [Pred] -> m [Pred]
-reduce ce ps = return $ toHnfs ce ps >>= simplify ce
+reduce :: ClassEnv -> [Pred] -> Either TIError [Pred]
+reduce ce ps = do
+  hnfs <- toHnfs ce ps
+  return $ simplify ce hnfs

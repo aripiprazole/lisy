@@ -40,6 +40,7 @@ library
       ResolvedAst
       Scheme
       TI
+      TIError
       Types
       Unify
   other-modules:

@@ -3,6 +3,7 @@ module Assump (Assump (..), find) where
 import Control.Monad (MonadFail)
 import Name (Name)
 import Scheme (Scheme)
+import TIError (TIError (TIError))
 import Types (Types (apply, ftv))
 
 -- | Assumption about a type variable.
@@ -16,8 +17,8 @@ instance Types Assump where
   ftv (_ :>: sc) = ftv sc
 
 -- | Finds a scheme given a assumption context.
-find :: MonadFail m => Name -> [Assump] -> m Scheme
-find n [] = fail $ "unbound name: " ++ show n
+find :: Name -> [Assump] -> Either TIError Scheme
+find n [] = Left $ TIError $ "unbound name: " ++ show n
 find n ((n' :>: sc) : as)
   | n == n' = return sc
   | otherwise = find n as

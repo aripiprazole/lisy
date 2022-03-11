@@ -20,9 +20,11 @@ module Adhoc
   )
 where
 
+import Data.Either (isRight)
 import Data.List (intercalate, union)
 import Data.Maybe (isJust, isNothing)
 import Name (Name (Id))
+import TIError (TIError (TIError))
 import Types (Subst, Typ (TApp), Types (apply, ftv), tDouble, tInt)
 import Unify (match, mgu)
 
@@ -63,17 +65,17 @@ instance Types Pred where
   apply s (IsIn t n) = IsIn (apply s t) n
   ftv (IsIn t _) = ftv t
 
-mguPred :: Pred -> Pred -> Maybe Subst
+mguPred :: Pred -> Pred -> Either TIError Subst
 mguPred = lift mgu
 
-matchPred :: Pred -> Pred -> Maybe Subst
+matchPred :: Pred -> Pred -> Either TIError Subst
 matchPred = lift match
 
 -- | Transforms unify functions to work on `Pred`.
-lift :: MonadFail m => (Typ -> Typ -> m a) -> Pred -> Pred -> m a
+lift :: (Typ -> Typ -> Either TIError a) -> Pred -> Pred -> Either TIError a
 lift f (IsIn t n) (IsIn t' n')
   | n == n' = f t t'
-  | otherwise = fail "classes differ"
+  | otherwise = Left $ TIError "classes differ"
 
 data ClassEnv = ClassEnv
   { -- | Maps identifiers to class values, or Nothing if there is no such class.
@@ -140,7 +142,7 @@ addInst ps p@(IsIn _ n) ce
 
 -- | Checks if two predicates overlap each other.
 overlap :: Pred -> Pred -> Bool
-overlap p q = isJust (mguPred p q)
+overlap p q = isRight (mguPred p q)
 
 addPreludeClasses :: EnvTransformer
 addPreludeClasses = addCoreClasses <:> addNumClasses

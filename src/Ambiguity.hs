@@ -5,6 +5,7 @@ import Data.List (partition, (\\))
 import Entailment (entail)
 import Name (Name (Id))
 import Reduction (reduce)
+import TIError (TIError (TIError))
 import Types (Subst (Subst), TyVar (TyVar), Typ (TVar), Types (ftv))
 
 -- | Ambiguity is when a type scheme ps :=> τ, ps contains quantified variables
@@ -40,9 +41,9 @@ candidates ce (u, qs) =
       all (entail ce []) [IsIn t' n | n <- ns]
   ]
 
-withDefaults :: MonadFail m => ([Ambiguity] -> [Typ] -> a) -> ClassEnv -> [TyVar] -> [Pred] -> m a
+withDefaults :: ([Ambiguity] -> [Typ] -> a) -> ClassEnv -> [TyVar] -> [Pred] -> Either TIError a
 withDefaults f ce us ps
-  | any null tss = fail "can not resolve ambiguity"
+  | any null tss = Left $ TIError "can not resolve ambiguity"
   | otherwise = return $ f vps (map head tss)
   where
     vps :: [Ambiguity]
@@ -51,10 +52,10 @@ withDefaults f ce us ps
     tss :: [[Typ]]
     tss = map (candidates ce) vps
 
-defaultedPreds :: MonadFail m => ClassEnv -> [TyVar] -> [Pred] -> m [Pred]
+defaultedPreds :: ClassEnv -> [TyVar] -> [Pred] -> Either TIError [Pred]
 defaultedPreds = withDefaults $ \vps _ -> concatMap snd vps
 
-defaultSubst :: MonadFail m => ClassEnv -> [TyVar] -> [Pred] -> m Subst
+defaultSubst :: ClassEnv -> [TyVar] -> [Pred] -> Either TIError Subst
 defaultSubst ce us ps = do
   s <- withDefaults (zip . map fst) ce us ps
 
@@ -65,7 +66,7 @@ defaultSubst ce us ps = do
 --
 -- fs is a set of free variables in assumptions.
 -- gs is a set of free variables that we would like to quantify.
-split :: MonadFail m => ClassEnv -> [TyVar] -> [TyVar] -> [Pred] -> m ([Pred], [Pred])
+split :: ClassEnv -> [TyVar] -> [TyVar] -> [Pred] -> Either TIError ([Pred], [Pred])
 split ce fs gs ps = do
   ps' <- reduce ce ps
   let (ds, rs) = partition (all (`elem` fs) . ftv) ps'

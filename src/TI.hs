@@ -1,5 +1,3 @@
-{-# LANGUAGE DeriveFunctor #-}
-
 module TI
   ( TI (..),
     State,
@@ -14,7 +12,10 @@ module TI
 where
 
 import Adhoc (Pred (IsIn), Qual ((:=>)))
+import Control.Monad.Except (Except, MonadTrans (lift), runExcept)
+import Control.Monad.State (MonadState (get, put), StateT, evalStateT, gets)
 import Scheme (Scheme (Forall))
+import TIError (TIError)
 import Types (Kind, Subst, TyVar (TyVar), Typ (TApp, TGen, TVar), Types (apply), enumId, nullSubst, (@@))
 import Unify (mgu)
 
@@ -22,43 +23,32 @@ import Unify (mgu)
 type State = Int
 
 -- | Type inference monad.
-newtype TI a = TI (Subst -> State -> (Subst, State, a)) deriving (Functor)
+type TI a = StateT (Subst, State) (Either TIError) a
 
-instance Applicative TI where
-  pure x = TI $ \s i -> (s, i, x)
-  (<*>) (TI f) (TI f') = TI $ \s i ->
-    let (s', i', g) = f s i
-     in let (s'', i'', x) = f' s' i'
-         in (s'', i'', g x)
-
-instance Monad TI where
-  (>>=) (TI f) g = TI $ \s i ->
-    let (s', i', x) = f s i
-     in let TI g' = g x
-         in g' s' i'
-
-instance MonadFail TI where
-  fail msg = TI $ \_ _ -> error $ "type inference failed: " ++ msg
-
-runTI :: TI a -> a
-runTI (TI f) = x where (_, _, x) = f nullSubst 0
+runTI :: TI a -> Either TIError a
+runTI ti = evalStateT ti (nullSubst, 0)
 
 getSubst :: TI Subst
-getSubst = TI $ \s i -> (s, i, s)
+getSubst = gets fst
 
 unify :: Typ -> Typ -> TI ()
 unify t1 t2 = do
   s <- getSubst
-  u <- mgu (apply s t1) (apply s t2)
+  u <- lift $ mgu (apply s t1) (apply s t2)
   extSubst u
 
--- | Composes s' with the context substituition.
+-- | Composes s with the context substituition.
 extSubst :: Subst -> TI ()
-extSubst s' = TI $ \s i -> (s' @@ s, i, ())
+extSubst s = do
+  (s', n) <- get
+  put (s @@ s', n)
 
 -- | Gets a fresh TVar with kind k.
 newTVar :: Kind -> TI Typ
-newTVar k = TI $ \s n -> let u = TyVar (enumId n) k in (s, n + 1, TVar u)
+newTVar k = do
+  (s, n) <- get
+  put (s, n + 1)
+  return $ TVar $ TyVar (enumId n) k
 
 -- | Instantiates a scheme with new type variables of apropriated kinds.
 freshInst :: Scheme -> TI (Qual Typ)

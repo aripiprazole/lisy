@@ -18,6 +18,7 @@ import Name (Name (Id))
 import ResolvedAst (RAlt (RAlt), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RImpl (RImpl), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram), bgFromTuples)
 import Scheme (Scheme (Forall), quantify)
 import TI (getSubst, runTI)
+import TIError (TIError (TIError))
 import Types (Kind, TyCon (TyCon), TyVar (TyVar), Typ (TApp, TCon, TVar), Types (apply))
 
 data Var = Var
@@ -43,13 +44,18 @@ asFromState ce (AnalyzerState vars _ _) = foldl go [] vars
   where
     go :: [Assump] -> Var -> [Assump]
     go as (Var n _ (Just sc)) = n :>: sc : as
-    go as (Var n alts Nothing) = as' ++ as
+    go as (Var n alts Nothing) = as'' ++ as
       where
-        as' :: [Assump]
-        as' = (snd . runTI) $ do
+        as' :: Either TIError ([Pred], [Assump])
+        as' = runTI $ do
           a <- tiImpls ce as [RImpl n alts]
           s <- getSubst
           return $ apply s a
+
+        as'' :: [Assump]
+        as'' = case as' of
+          Right x -> snd x
+          Left _ -> []
 
 initialState :: AnalyzerState
 initialState = AnalyzerState [] [] Nothing
