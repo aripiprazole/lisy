@@ -48,6 +48,9 @@ data Class = Class [Name] [Inst]
 
 type Inst = Qual Pred
 
+qual :: Qual t -> t
+qual (_ :=> t) = t
+
 instance Show Pred where
   show (IsIn t@(TApp _ _) n) = concat [show n, " (", show t, ")"]
   show (IsIn t n) = concat [show n, " ", show t]
@@ -121,21 +124,18 @@ addClass :: Name -> [Name] -> EnvTransformer
 addClass n supers ce
   | isJust (classes ce n) = fail "class redefinition"
   | not (all (isJust . classes ce) supers) = fail "super class not defined"
-  | otherwise = return $ modify ce n (Class supers [])
+  | otherwise = pure $ modify ce n (Class supers [])
 
 -- | Add a new instance of class into the environment if the class is defined,
 -- and if there is not the instance, if not, it fails.
 addInst :: [Pred] -> Pred -> EnvTransformer
 addInst ps p@(IsIn _ n) ce
   | isNothing (classes ce n) = fail "class not defined"
-  | any (overlap p) qs = fail "instance redefinition"
-  | otherwise = return $ modify ce n cls
+  | any (overlap p) $ qual <$> insts' = fail "instance redefinition"
+  | otherwise = pure $ modify ce n cls
   where
     insts' :: [Inst]
     insts' = insts ce n
-
-    qs :: [Pred]
-    qs = [q | (_ :=> q) <- insts']
 
     cls :: Class
     cls = Class (super ce n) $ (ps :=> p) : insts'

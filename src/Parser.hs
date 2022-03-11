@@ -37,7 +37,7 @@ pSymbolName = do
   str <- lexeme ((:) <$> unicodeSymbol <*> many unicodeSymbol <?> "symbol")
   keyword ")"
 
-  return $ Id str
+  pure $ Id str
   where
     unicodeSymbol :: Parser Char
     unicodeSymbol = choice [symbolChar, letterChar, char '-', char ':']
@@ -53,12 +53,12 @@ pAsciiName = (lexeme . try) $ do
   s <- (:) <$> letterChar <*> many alphaNumChar <?> "ascii id"
   if pack s `elem` keywords
     then fail $ "keyword " ++ show s ++ " is a reseverd keyword"
-    else return $ Id s
+    else pure $ Id s
 
 pScheme :: Parser Scheme
 pScheme = label "type scheme" $ do
   t <- pTyp
-  return $ Forall [] ([] :=> t)
+  pure $ Forall [] ([] :=> t)
 
 pReplExp :: Parser ReplExp
 pReplExp = choice [pDecl', pExp'] <?> "repl expression"
@@ -77,14 +77,14 @@ pDecl = choice [pImpl, pVal] <?> "declaration"
       n <- lexeme pName
       keyword ":"
       sc <- lexeme pScheme
-      return $ DVal n sc
+      pure $ DVal n sc
 
     pImpl :: Parser Decl
     pImpl = (label "impl declaration" . try) $ do
       n <- lexeme pName
       alt <- lexeme pAlt
 
-      return $ DImpl n alt
+      pure $ DImpl n alt
 
 pPat :: Parser Pat
 pPat = choice [pCon, pPLit, pAs, pVar, pGroup, pWildcard] <?> "pattern"
@@ -109,7 +109,7 @@ pPat = choice [pCon, pPLit, pAs, pVar, pGroup, pWildcard] <?> "pattern"
       n <- pName
       ps <- many pPat
 
-      return $ PCon n ps
+      pure $ PCon n ps
 
 pAlt :: Parser Alt
 pAlt = label "alternative" $ do
@@ -136,7 +136,7 @@ pExp = choice [pLet, pApp] <?> "expression"
       e1 <- pPrimary
       e2 <- many pPrimary
 
-      return $ foldl EApp e1 e2
+      pure $ foldl EApp e1 e2
 
 pLit :: Parser Lit
 pLit = choice [pInt, pString, pUnit] <?> "literal"
@@ -178,12 +178,12 @@ pTyp = pBinApp <?> "type"
     pApp = label "type application" $ do
       t1 <- pCon
       t2 <- many pTyp
-      return $ foldl TApp t1 t2
+      pure $ foldl TApp t1 t2
 
     pCon :: Parser Typ
     pCon = label "type constructor" $ do
       n <- lexeme pName
-      return $ TCon $ TyCon n KStar
+      pure $ TCon $ TyCon n KStar
 
     -- TODO: fix right associative making IO () -> Float turn into IO (() -> Float)
     pBinApp :: Parser Typ
@@ -193,11 +193,11 @@ pTyp = pBinApp <?> "type"
       go l n
       where
         go :: Typ -> Maybe Name -> Parser Typ
-        go l Nothing = return l
+        go l Nothing = pure l
         go l (Just n) = do
           rat <- many pBinApp
 
-          return $ foldl TApp (TApp (TCon $ TyCon n KStar) l) rat
+          pure $ foldl TApp (TApp (TCon $ TyCon n KStar) l) rat
 
 lined :: Parser a -> Parser a
 lined p = p <* (void (keyword "\n") <|> void (keyword ";") <|> eof)

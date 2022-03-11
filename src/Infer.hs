@@ -34,31 +34,31 @@ tiProgram ce as (RProgram pg) = runTI $ do
   s' <- lift $ defaultSubst ce [] rs
   undefined
 
--- return (s', s, rs, apply (s' @@ s) as')
+-- pure (s', s, rs, apply (s' @@ s) as')
 
 tiImpls :: Infer [RImpl] [Assump]
 tiImpls ce as bs = do
   ts <- mapM (\_ -> newTVar KStar) bs
-  let ns = map iName bs
-      scs = map toScheme ts
+  let ns = iName <$> bs
+      scs = toScheme <$> ts
       as' = zipWith (:>:) ns scs ++ as
-      alts' = map iAlts bs
+      alts' = iAlts <$> bs
   pss <- zipWithM (tiAlts ce as) alts' ts
   s <- getSubst
   let ps' = apply s $ concat pss
       ts' = apply s ts
       fs = ftv $ apply s as
-      vss = map ftv ts'
+      vss = ftv <$> ts'
       gs = foldr1 union vss \\ fs
   (ds, rs) <- lift $ split ce fs (foldr1 intersect vss) ps'
   if restricted bs
     then
       let gs' = gs \\ ftv rs
-          scs' = map (quantify gs' . ([] :=>)) ts'
-       in return (ds ++ rs, zipWith (:>:) ns scs')
+          scs' = quantify gs' . ([] :=>) <$> ts'
+       in pure (ds ++ rs, zipWith (:>:) ns scs')
     else
-      let scs' = map (quantify gs . (rs :=>)) ts'
-       in return (ds, zipWith (:>:) ns scs')
+      let scs' = quantify gs . (rs :=>) <$> ts'
+       in pure (ds, zipWith (:>:) ns scs')
 
 tiExpl :: ClassEnv -> [Assump] -> RExpl -> TI [Pred]
 tiExpl ce as (RExpl n sc alts) = do
@@ -78,98 +78,98 @@ tiExpl ce as (RExpl n sc alts) = do
     else
       if not $ null rs
         then throwError $ TIError "context too weak"
-        else return ds
+        else pure ds
 
 tiAlt :: Infer RAlt Typ
 tiAlt ce as (RAlt pats e) = do
   (ps, as', ts) <- tiPats pats
   (qs, t) <- tiExp ce (as' ++ as) e
 
-  return (ps ++ qs, foldr (->>) t ts)
+  pure (ps ++ qs, foldr (->>) t ts)
 
 tiAlts :: ClassEnv -> [Assump] -> [RAlt] -> Typ -> TI [Pred]
 tiAlts ce as alts t = do
   psts <- mapM (tiAlt ce as) alts
   mapM_ (unify t . snd) psts
-  return $ concatMap fst psts
+  pure $ concatMap fst psts
 
 tiExp :: Infer RExp Typ
 tiExp ce as (RELit l) = do
   (ps, t) <- tiLit l
-  return (ps, t)
+  pure (ps, t)
 tiExp ce as (REVar n) = do
   sc <- lift $ find n as
   (ps :=> t) <- freshInst sc
-  return (ps, t)
+  pure (ps, t)
 tiExp ce as (REConst (n :>: sc)) = do
   (ps :=> t) <- freshInst sc
-  return (ps, t)
+  pure (ps, t)
 tiExp ce as (REApp f e) = do
   (qs, tf) <- tiExp ce as f
   (ps, te) <- tiExp ce as e
   t <- newTVar KStar
   unify (te ->> t) tf
-  return (ps ++ qs, t)
+  pure (ps ++ qs, t)
 tiExp ce as (RELet bg e) = do
   (ps, as') <- tiBindGroup ce as bg
   (qs, t) <- tiExp ce (as ++ as') e
-  return (ps ++ qs, t)
+  pure (ps ++ qs, t)
 
 tiLit :: Lit -> TI ([Pred], Typ)
-tiLit LUnit = return ([], tUnit)
-tiLit (LString _) = return ([], tString)
+tiLit LUnit = pure ([], tUnit)
+tiLit (LString _) = pure ([], tString)
 tiLit (LRat _) = do
   u <- newTVar KStar
-  return ([IsIn u (Id "Fractional")], u)
+  pure ([IsIn u (Id "Fractional")], u)
 tiLit (LInt _) = do
   u <- newTVar KStar
-  return ([IsIn u (Id "Num")], u)
+  pure ([IsIn u (Id "Num")], u)
 
 tiSeq :: Infer bg [Assump] -> Infer [bg] [Assump]
-tiSeq ti ce as [] = return ([], [])
+tiSeq ti ce as [] = pure ([], [])
 tiSeq ti ce as (bs : bss) = do
   (ps, as') <- ti ce as bs
   (qs, as'') <- tiSeq ti ce (as' ++ as) bss
-  return (ps ++ qs, as'' ++ as')
+  pure (ps ++ qs, as'' ++ as')
 
 tiBindGroup :: Infer RBindGroup [Assump]
 tiBindGroup ce as (RBindGroup es iss) = do
   let as' = [u :>: sc | (RExpl u sc _) <- es]
   (ps, as'') <- tiSeq tiImpls ce (as' ++ as) iss
   qss <- mapM (tiExpl ce (as'' ++ as' ++ as)) es
-  return (ps ++ concat qss, as'' ++ as')
+  pure (ps ++ concat qss, as'' ++ as')
 
 tiPat :: RPat -> TI ([Pred], [Assump], Typ)
 tiPat (RPVar n) = do
   u <- newTVar KStar
-  return ([], [n :>: toScheme u], u)
+  pure ([], [n :>: toScheme u], u)
 tiPat RPWildcard = do
   u <- newTVar KStar
-  return ([], [], u)
+  pure ([], [], u)
 tiPat (RPAs n pat) = do
   (ps, as, t) <- tiPat pat
-  return (ps, (n :>: toScheme t) : as, t)
+  pure (ps, (n :>: toScheme t) : as, t)
 tiPat (RPLit lit) = do
   (ps, t) <- tiLit lit
-  return (ps, [], t)
+  pure (ps, [], t)
 tiPat (RPNpk n i) = do
   u <- newTVar KStar
-  return ([IsIn u (Id "Integral")], [], u)
+  pure ([IsIn u (Id "Integral")], [], u)
 tiPat (RPCon (n :>: sc) pats) = do
   (ps, as, ts) <- tiPats pats
   t <- newTVar KStar
   (qs :=> t') <- freshInst sc
   unify t' (foldr (->>) t ts)
 
-  return (ps ++ qs, as, t)
+  pure (ps ++ qs, as, t)
 
 tiPats :: [RPat] -> TI ([Pred], [Assump], [Typ])
 tiPats pats = do
   pats' <- mapM tiPat pats
   let ps = concat [ps' | (ps', _, _) <- pats']
       as = concat [as' | (_, as', _) <- pats']
-      ts = concat [[t] | (_, _, t) <- pats']
-  return (ps, as, ts)
+      ts = [t | (_, _, t) <- pats']
+  pure (ps, as, ts)
 
 -- | A set of impl is restricted when a impl is simple, being simple is
 -- when it has an alternative with no left-hand patterns.

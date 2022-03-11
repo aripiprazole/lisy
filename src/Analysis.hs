@@ -50,7 +50,7 @@ asFromState ce (AnalyzerState vars _ _) = foldl go [] vars
         as' = runTI $ do
           a <- tiImpls ce as [RImpl n alts]
           s <- getSubst
-          return $ apply s a
+          pure $ apply s a
 
         as'' :: [Assump]
         as'' = case as' of
@@ -70,13 +70,13 @@ setImpl n a = do
   s' <- fromJust <$> lookupSymbol n
   put st {variables = s' {alts = a : alts s'} : delete s' (variables st)}
 
-  return ()
+  pure ()
 
 setSymbol :: Maybe Scheme -> Name -> Resolve ()
 setSymbol sc n = do
   st <- get
   put st {variables = Var n [] sc : variables st}
-  return ()
+  pure ()
 
 forkState :: Resolve a -> Resolve a
 forkState f = do
@@ -84,24 +84,24 @@ forkState f = do
   put s {enclosing = Just s}
   a <- f
   put s
-  return a
+  pure a
 
 lookupType :: Name -> Resolve (Maybe (Name, Kind))
 lookupType n = do v <- gets types; go v
   where
     go :: [(Name, Kind)] -> Resolve (Maybe (Name, Kind))
-    go [] = return Nothing
+    go [] = pure Nothing
     go ((n', k) : xs)
-      | n == n' = return $ Just (n', k)
+      | n == n' = pure $ Just (n', k)
       | otherwise = go xs
 
 lookupSymbol :: Name -> Resolve (Maybe Var)
 lookupSymbol n = do v <- gets variables; go v
   where
     go :: [Var] -> Resolve (Maybe Var)
-    go [] = return Nothing
+    go [] = pure Nothing
     go (v@(Var n' _ sc) : xs)
-      | n == n' = return $ Just v
+      | n == n' = pure $ Just v
       | otherwise = go xs
 
 generalize :: Typ -> Resolve [TyVar]
@@ -110,13 +110,13 @@ generalize = go []
     go :: [TyVar] -> Typ -> Resolve [TyVar]
     go us (TVar tv@(TyVar n _)) =
       lookupType n >>= \case
-        Just _ -> return us
-        Nothing -> return $ tv : us
+        Just _ -> pure us
+        Nothing -> pure $ tv : us
     go us t@(TApp t1 t2) = do
       t1' <- go us t1
       t2' <- go us t2
-      return $ t1' ++ t2'
-    go us t = return us
+      pure $ t1' ++ t2'
+    go us t = pure us
 
 resolveProgram :: Program -> Resolve RProgram
 resolveProgram p = do
@@ -126,30 +126,30 @@ resolveProgram p = do
 resolvePred :: Pred -> Resolve Pred
 resolvePred (IsIn t n) = do
   t' <- resolveTyp t
-  return $ IsIn t n
+  pure $ IsIn t n
 
 resolveScheme :: Scheme -> Resolve Scheme
 resolveScheme (Forall ks (ps :=> t)) = do
   ps' <- mapM resolvePred ps
   t' <- resolveTyp t
-  return $ Forall ks $ ps' :=> t'
+  pure $ Forall ks $ ps' :=> t'
 
 resolveTyp :: Typ -> Resolve Typ
 resolveTyp (TCon (TyCon n k)) =
   lookupType n >>= \case
-    Just (n', k') -> return $ TCon $ TyCon n' k'
-    Nothing -> return $ TVar $ TyVar n k
+    Just (n', k') -> pure $ TCon $ TyCon n' k'
+    Nothing -> pure $ TVar $ TyVar n k
 resolveTyp (TApp l r) = do
   l' <- resolveTyp l
   r' <- resolveTyp r
-  return $ TApp l' r'
-resolveTyp t = return t
+  pure $ TApp l' r'
+resolveTyp t = pure t
 
 resolveDecl :: Decl -> Resolve ()
 resolveDecl (DImpl n a) = do
   a' <- forkState $ resolveAlt a
   setImpl n a'
-  return ()
+  pure ()
 resolveDecl (DVal n sc) = do
   (Forall _ qt@(_ :=> t)) <- resolveScheme sc
   us <- generalize t
@@ -160,44 +160,44 @@ resolveAlt :: Alt -> Resolve RAlt
 resolveAlt (Alt ps e) = do
   ps' <- sequence $ resolvePat <$> ps
   e' <- resolveExp e
-  return $ RAlt ps' e'
+  pure $ RAlt ps' e'
 
 resolvePat :: Pat -> Resolve RPat
-resolvePat PWildcard = return RPWildcard
-resolvePat (PLit l) = return $ RPLit l
-resolvePat (PNpk n k) = return $ RPNpk n k
+resolvePat PWildcard = pure RPWildcard
+resolvePat (PLit l) = pure $ RPLit l
+resolvePat (PNpk n k) = pure $ RPNpk n k
 resolvePat (PAs n p) = do
   p' <- resolvePat p
   setSymbol Nothing n
-  return $ RPAs n p'
+  pure $ RPAs n p'
 resolvePat (PVar n) = do
   setSymbol Nothing n
-  return $ RPVar n
+  pure $ RPVar n
 resolvePat (PCon n ps) = do
-  sc <- fmap scheme <$> lookupSymbol n
+  sc <- (scheme <$>) <$> lookupSymbol n
   ps' <- sequence $ resolvePat <$> ps
 
   case sc of
-    Just (Just sc') -> return $ RPCon (n :>: sc') ps'
-    Nothing | null ps' -> do setSymbol Nothing n; return $ RPVar n
+    Just (Just sc') -> pure $ RPCon (n :>: sc') ps'
+    Nothing | null ps' -> do setSymbol Nothing n; pure $ RPVar n
     _ -> throwError $ UnresolvedVar n
 
 resolveExp :: Exp -> Resolve RExp
-resolveExp (ELit lit) = return $ RELit lit
+resolveExp (ELit lit) = pure $ RELit lit
 resolveExp (EVar v) = do
   v' <- lookupSymbol v
   case v' of
-    Just (Var n _ (Just sc)) -> return $ REConst (n :>: sc)
+    Just (Var n _ (Just sc)) -> pure $ REConst (n :>: sc)
     Nothing -> throwError $ UnresolvedVar v
-    _ -> return $ REVar v
+    _ -> pure $ REVar v
 resolveExp (EApp l r) = do
   l' <- resolveExp l
   r' <- resolveExp r
-  return $ REApp l' r'
+  pure $ REApp l' r'
 resolveExp (ELet vars e) = forkState $ do
   vars' <- mapM mapVar vars
   e' <- resolveExp e
-  return $ RELet (bgFromTuples (map mapBg vars')) e'
+  pure $ RELet (bgFromTuples (map mapBg vars')) e'
   where
     mapBg :: (Name, RAlt) -> (Name, Maybe Scheme, [RAlt])
     mapBg (n, a) = (n, Nothing, [a])
@@ -206,4 +206,4 @@ resolveExp (ELet vars e) = forkState $ do
     mapVar (n, a) = do
       setSymbol Nothing n
       a' <- resolveAlt a
-      return (n, a')
+      pure (n, a')

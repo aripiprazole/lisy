@@ -20,5 +20,5 @@ instance Types Assump where
 find :: Name -> [Assump] -> Either TIError Scheme
 find n [] = Left $ TIError $ "unbound name: " ++ show n
 find n ((n' :>: sc) : as)
-  | n == n' = return sc
+  | n == n' = pure sc
   | otherwise = find n as

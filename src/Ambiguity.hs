@@ -28,7 +28,7 @@ ambiguities ce us ps = [(u, filter (elem u . ftv) ps) | u <- ftv ps \\ us]
 -- - At least one of the classes involved in qs is a standard numeric class;
 -- - All the classes involved in qs are standard classes;
 -- - There is at least one type in defaults of the class environment.
--- If returns an empty list, defaulting is not permitted.
+-- If pures an empty list, defaulting is not permitted.
 candidates :: ClassEnv -> Ambiguity -> [Typ]
 candidates ce (u, qs) =
   [ t'
@@ -44,13 +44,13 @@ candidates ce (u, qs) =
 withDefaults :: ([Ambiguity] -> [Typ] -> a) -> ClassEnv -> [TyVar] -> [Pred] -> Either TIError a
 withDefaults f ce us ps
   | any null tss = Left $ TIError "can not resolve ambiguity"
-  | otherwise = return $ f vps (map head tss)
+  | otherwise = pure $ f vps $ head <$> tss
   where
     vps :: [Ambiguity]
     vps = ambiguities ce us ps
 
     tss :: [[Typ]]
-    tss = map (candidates ce) vps
+    tss = candidates ce <$> vps
 
 defaultedPreds :: ClassEnv -> [TyVar] -> [Pred] -> Either TIError [Pred]
 defaultedPreds = withDefaults $ \vps _ -> concatMap snd vps
@@ -59,7 +59,7 @@ defaultSubst :: ClassEnv -> [TyVar] -> [Pred] -> Either TIError Subst
 defaultSubst ce us ps = do
   s <- withDefaults (zip . map fst) ce us ps
 
-  return $ Subst s
+  pure $ Subst s
 
 -- | Splits into 2 lists, the first will be passed out as constraints to
 -- the enclosing scope, the second will be used to form an inferred type.
@@ -71,4 +71,4 @@ split ce fs gs ps = do
   ps' <- reduce ce ps
   let (ds, rs) = partition (all (`elem` fs) . ftv) ps'
   rs' <- defaultedPreds ce (fs ++ gs) rs
-  return (ds, rs \\ rs')
+  pure (ds, rs \\ rs')

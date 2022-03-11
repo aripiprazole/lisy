@@ -48,13 +48,13 @@ newTVar :: Kind -> TI Typ
 newTVar k = do
   (s, n) <- get
   put (s, n + 1)
-  return $ TVar $ TyVar (enumId n) k
+  pure $ TVar $ TyVar (enumId n) k
 
 -- | Instantiates a scheme with new type variables of apropriated kinds.
 freshInst :: Scheme -> TI (Qual Typ)
 freshInst (Forall ks qt) = do
   ts <- mapM newTVar ks
-  return $ inst ts qt
+  pure $ inst ts qt
 
 class Instantiate a where inst :: [Typ] -> a -> a
 

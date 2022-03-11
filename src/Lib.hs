@@ -45,4 +45,4 @@ entrypoint = do
   ce <- addPreludeClasses initialEnv
   runStateT (runInputT defaultSettings loop) $ replState ce astate
 
-  return ()
+  pure ()

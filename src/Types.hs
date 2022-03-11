@@ -65,13 +65,13 @@ nullSubst = Subst []
 
 -- | Merges two substitutions, is equivalent to `s1 +++ s2` but
 -- if there are any conflicts between the type variables of the two
--- substitutions, it fails, otherwise, returns `s1 +++ s2`.
+-- substitutions, it fails, otherwise, pures `s1 +++ s2`.
 -- The result preserves the types' kinds.
 merge :: Subst -> Subst -> Either TIError Subst
-merge s1 s2 = if agree then return $ s1 +++ s2 else Left $ TIError "merge fails"
+merge s1 s2 = if agree then pure $ s1 +++ s2 else Left $ TIError "merge fails"
   where
     agree :: Bool
-    agree = all f (map fst (substs s1) `intersect` map fst (substs s2))
+    agree = all f $ (fst <$> substs s1) `intersect` (fst <$> substs s2)
 
     f :: TyVar -> Bool
     f u = apply s1 (TVar u) == apply s2 (TVar u)
@@ -135,7 +135,7 @@ class Types a where
   -- corresponding types in the given substitution
   apply :: Subst -> a -> a
 
-  -- | Returns a set of free variables of `a`
+  -- | pures a set of free variables of `a`
   ftv :: a -> [TyVar]
 
 instance (Types a, Types b) => Types (a, b) where

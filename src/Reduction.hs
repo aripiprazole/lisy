@@ -25,13 +25,13 @@ inHnf (IsIn t _) = isHnf' t
 -- toHnf :: ClassEnv -> Pred -> Either TIError [Pred]
 toHnf :: ClassEnv -> Pred -> Either TIError [Pred]
 toHnf ce p
-  | inHnf p = return [p]
+  | inHnf p = pure [p]
   | otherwise = byInst ce p >>= toHnfs ce
 
 toHnfs :: ClassEnv -> [Pred] -> Either TIError [Pred]
 toHnfs ce ps = do
   ps' <- mapM (toHnf ce) ps
-  return $ concat ps'
+  pure $ concat ps'
 
 -- | Reduces the size of predicates by removing duplicates,
 -- like transforming `(Eq a, Eq a)` to `Eq a`.
@@ -47,4 +47,4 @@ simplify ce = loop []
 reduce :: ClassEnv -> [Pred] -> Either TIError [Pred]
 reduce ce ps = do
   hnfs <- toHnfs ce ps
-  return $ simplify ce hnfs
+  pure $ simplify ce hnfs

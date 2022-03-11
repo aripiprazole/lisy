@@ -26,16 +26,13 @@ instance Types Scheme where
 
 -- | Quantify type into a Scheme. It is useful to compare two type schemes.
 quantify :: [TyVar] -> Qual Typ -> Scheme
-quantify us qt = Forall ks (apply s qt)
+quantify us qt = Forall (kind <$> us') $ apply s qt
   where
     us' :: [TyVar]
     us' = [u | u <- ftv qt, u `elem` us]
 
-    ks :: [Kind]
-    ks = map kind us'
-
     s :: Subst
-    s = Subst $ zip us' (map TGen [0 ..])
+    s = Subst $ zip us' $ TGen <$> [0 ..]
 
 -- | Transform a type into a scheme without quantifying or adding
 -- qualified predicates.

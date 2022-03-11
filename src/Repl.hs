@@ -43,9 +43,9 @@ evalRepl s@(ReplState ce as astate) txt = do
       (rexp, astate') <- pretty "" `left` runStateT (A.resolveExp exp) astate
       let as' = A.asFromState ce astate'
           as'' = as' ++ as
-      (s', (ps, t)) <- pretty "" `left` runTI (do e <- tiExp ce as'' rexp; s <- getSubst; return (s, apply s e))
+      (s', (ps, t)) <- pretty "" `left` runTI (do e <- tiExp ce as'' rexp; s <- getSubst; pure (s, apply s e))
 
-      return
+      pure
         ( s {astate = astate', as = as''},
           case ps of
             [] -> concat [T.unpack txt, " : ", show $ apply s' t]
@@ -56,7 +56,7 @@ evalRepl s@(ReplState ce as astate) txt = do
 
       let as' = A.asFromState ce astate'
 
-      return (s {astate = astate', as = as' ++ as}, show rdecl)
+      pure (s {astate = astate', as = as' ++ as}, show rdecl)
 
 loop :: Repl ()
 loop = do
@@ -65,14 +65,14 @@ loop = do
   where
     -- TODO: add type check command
     go :: [T.Text] -> Repl ()
-    go [":quit"] = return ()
-    go [":q"] = return ()
+    go [":quit"] = pure ()
+    go [":q"] = pure ()
     go [":type", n] = do
       st <- lift get
 
       case find (Id (T.unpack n)) $ as st of
         Right sc -> do liftIO $ putStrLn $ T.unpack n ++ " : " ++ show sc
-        Left _ -> return ()
+        Left _ -> pure ()
 
       loop
     go [":as"] = do
