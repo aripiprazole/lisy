@@ -3,7 +3,7 @@ module Scheme (Scheme (..), quantify, toScheme) where
 import Adhoc (Qual ((:=>)))
 import Data.Foldable (toList)
 import qualified Data.Sequence as S
-import Types (HasKind (kind), Kind, Subst (Subst), TyVar, Typ (TGen), Types (apply, ftv), letters)
+import Types (HasKind (kind), Kind (KStar), Subst (Subst), TyVar, Typ (TGen), Types (apply, ftv), letters)
 
 -- | Type schemes are used to describe qualified types.
 -- Each TGen that appears in qt represents a generic that the kind is given
@@ -15,6 +15,7 @@ instance Show Scheme where
   show (Forall us q) = concat ["forall ", unwords us', ". ", show q]
     where
       showKind :: Int -> Kind -> String
+      showKind n KStar = "'" ++ letters !! n
       showKind n k = concat ["('", letters !! n, " : ", show k, ")"]
 
       us' :: [String]
