@@ -7,6 +7,7 @@ module TI
     extSubst,
     newTVar,
     freshInst,
+    applySubst,
     Instantiate (..),
   )
 where
@@ -36,6 +37,11 @@ unify t1 t2 = do
   s <- getSubst
   u <- lift $ mgu (apply s t1) (apply s t2)
   extSubst u
+
+applySubst :: Types a => a -> TI a
+applySubst t = do
+  s <- getSubst
+  pure $ apply s t
 
 -- | Composes s with the context substituition.
 extSubst :: Subst -> TI ()

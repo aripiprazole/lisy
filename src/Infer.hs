@@ -7,12 +7,13 @@ import Ast (Lit (LInt, LRat, LString, LUnit))
 import Control.Monad (zipWithM)
 import Control.Monad.Except (MonadError (throwError), MonadTrans (lift))
 import Data.List (intersect, union, (\\))
+import Debug.Trace (traceM)
 import Entailment (entail)
 import Name (Name (Id))
 import Reduction (reduce)
 import ResolvedAst (RAlt (RAlt, pats), RBindGroup (RBindGroup), RExp (REApp, REConst, RELet, RELit, REVar), RExpl (RExpl), RImpl (RImpl, iAlts, iName), RPat (RPAs, RPCon, RPLit, RPNpk, RPVar, RPWildcard), RProgram (RProgram))
 import Scheme (Scheme, quantify, toScheme)
-import TI (TI, freshInst, getSubst, newTVar, runTI, unify)
+import TI (TI, applySubst, freshInst, getSubst, newTVar, runTI, unify)
 import TIError (TIError (TIError))
 import Types (Kind (KStar), Subst (Subst), Typ, Types (apply, ftv), tChar, tString, tUnit, (->>), (@@))
 
@@ -104,12 +105,13 @@ tiExp ce as (REVar n) = do
 tiExp ce as (REConst (n :>: sc)) = do
   (ps :=> t) <- freshInst sc
   pure (ps, t)
-tiExp ce as (REApp f e) = do
+tiExp ce as exp@(REApp f e) = do
   (qs, tf) <- tiExp ce as f
   (ps, te) <- tiExp ce as e
   t <- newTVar KStar
   unify (te ->> t) tf
-  pure (ps ++ qs, t)
+  s <- getSubst
+  pure (apply s $ ps ++ qs, apply s t)
 tiExp ce as (RELet bg e) = do
   (ps, as') <- tiBindGroup ce as bg
   (qs, t) <- tiExp ce (as ++ as') e
