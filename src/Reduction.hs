@@ -2,6 +2,7 @@ module Reduction (inHnf, toHnf, toHnfs, simplify, reduce) where
 
 import Adhoc (ClassEnv, Pred (IsIn))
 import Data.Bool (bool)
+import Debug.Trace (trace)
 import Entailment (byInst, entail)
 import TIError (TIError (TIError))
 import Types (Typ (TApp, TCon, TVar))
@@ -38,7 +39,7 @@ toHnfs ce ps = do
 simplify :: ClassEnv -> [Pred] -> [Pred]
 simplify ce = loop []
   where
-    loop rs [] = []
+    loop rs [] = rs
     loop rs (p : ps)
       | entail ce (rs ++ ps) p = loop rs ps
       | otherwise = loop (p : rs) ps
